@@ -1,50 +1,73 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Lock, Bell, Globe, Shield } from 'lucide-react';
+import { Shield, User, Bell, Globe } from 'lucide-react';
+import { authService } from '../services/authService';
 
 export default function Perfil() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('info');
-  const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    sms: true
-  });
+  const [activeTab, setActiveTab] = useState<'security' | 'info' | 'notifications' | 'preferences'>('security');
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const tabs = [
-    { id: 'info', label: 'Información Personal', icon: User },
     { id: 'security', label: 'Seguridad', icon: Shield },
+    { id: 'info', label: 'Información Personal', icon: User },
     { id: 'notifications', label: 'Notificaciones', icon: Bell },
     { id: 'preferences', label: 'Preferencias', icon: Globe }
-  ];
+  ] as const;
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('Completa todos los campos.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('La nueva contraseña y su confirmación no coinciden.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await authService.changePassword(currentPassword, newPassword);
+      setSuccess(res.msg || 'Contraseña actualizada correctamente.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setError(err.response?.data?.msg || err.message || 'Error al cambiar la contraseña');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Mi Perfil</h1>
-        <p className="text-gray-600">Gestiona tu información personal y configuraciones</p>
+        <p className="text-gray-600">Gestiona tu seguridad y configuración</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {/* Profile Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-8">
-          <div className="flex items-center space-x-4">
-            <img
-              src={user?.avatar}
-              alt={user?.name}
-              className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
-            />
-            <div>
-              <h2 className="text-2xl font-bold text-white">{user?.name}</h2>
-              <p className="text-blue-100">{user?.email}</p>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white bg-opacity-20 text-white mt-2 capitalize">
-                {user?.role}
-              </span>
-            </div>
-          </div>
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-6">
+          <h2 className="text-xl font-semibold text-white">{user?.name}</h2>
+          <p className="text-blue-100">{user?.email}</p>
         </div>
 
-        {/* Tabs Navigation */}
+        {/* Tabs */}
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8 px-6">
             {tabs.map((tab) => {
@@ -67,240 +90,75 @@ export default function Perfil() {
           </nav>
         </div>
 
-        {/* Tab Content */}
+        {/* Content */}
         <div className="p-6">
-          {activeTab === 'info' && (
+          {activeTab === 'security' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-900">Información Personal</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre Completo
-                  </label>
+              <h3 className="text-lg font-medium text-gray-900">Cambiar contraseña</h3>
+              {error && <div className="bg-red-50 text-red-700 border border-red-200 p-3 rounded">{error}</div>}
+              {success && <div className="bg-green-50 text-green-700 border border-green-200 p-3 rounded">{success}</div>}
+              <form onSubmit={handleChangePassword} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña actual</label>
                   <input
-                    type="text"
-                    defaultValue={user?.name}
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nueva contraseña</label>
                   <input
-                    type="email"
-                    defaultValue={user?.email}
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teléfono
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Repetir nueva contraseña</label>
                   <input
-                    type="tel"
-                    placeholder="+54 11 1234-5678"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cargo
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Gerente de Ventas"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                <div className="md:col-span-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                  >
+                    {submitting ? 'Actualizando...' : 'Actualizar contraseña'}
+                  </button>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Biografía
-                </label>
-                <textarea
-                  rows={4}
-                  placeholder="Cuéntanos sobre ti..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                  Guardar Cambios
-                </button>
-              </div>
+              </form>
             </div>
           )}
 
-          {activeTab === 'security' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-900">Seguridad</h3>
-              
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h4 className="font-medium text-gray-900 mb-4">Cambiar Contraseña</h4>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Contraseña Actual
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nueva Contraseña
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Confirmar Nueva Contraseña
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                    Actualizar Contraseña
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h4 className="font-medium text-gray-900 mb-4">Autenticación de Dos Factores</h4>
-                <p className="text-gray-600 text-sm mb-4">
-                  Añade una capa extra de seguridad a tu cuenta
-                </p>
-                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                  Habilitar 2FA
-                </button>
-              </div>
+          {activeTab === 'info' && (
+            <div className="text-center py-16">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Información Personal</h3>
+              <p className="text-gray-600">Próximamente. Nuevas funcionalidades en desarrollo.</p>
             </div>
           )}
 
           {activeTab === 'notifications' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-900">Preferencias de Notificación</h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <Mail className="w-5 h-5 text-gray-400 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Notificaciones por Email</p>
-                      <p className="text-sm text-gray-600">Recibe updates importantes por email</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.email}
-                      onChange={(e) => setNotifications(prev => ({ ...prev, email: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <Bell className="w-5 h-5 text-gray-400 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Notificaciones Push</p>
-                      <p className="text-sm text-gray-600">Notificaciones en tiempo real</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.push}
-                      onChange={(e) => setNotifications(prev => ({ ...prev, push: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <Lock className="w-5 h-5 text-gray-400 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Alertas de Seguridad</p>
-                      <p className="text-sm text-gray-600">Notificaciones sobre actividad sospechosa</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.sms}
-                      onChange={(e) => setNotifications(prev => ({ ...prev, sms: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-              </div>
+            <div className="text-center py-16">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Notificaciones</h3>
+              <p className="text-gray-600">Próximamente. Nuevas funcionalidades en desarrollo.</p>
             </div>
           )}
 
           {activeTab === 'preferences' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-900">Preferencias del Sistema</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Idioma
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option>Español</option>
-                    <option>English</option>
-                    <option>Português</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Zona Horaria
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option>GMT-3 (Buenos Aires)</option>
-                    <option>GMT-5 (Bogotá)</option>
-                    <option>GMT-6 (México)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tema
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option>Claro</option>
-                    <option>Oscuro</option>
-                    <option>Automático</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Formato de Fecha
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option>DD/MM/YYYY</option>
-                    <option>MM/DD/YYYY</option>
-                    <option>YYYY-MM-DD</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="flex justify-end">
-                <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                  Guardar Preferencias
-                </button>
-              </div>
+            <div className="text-center py-16">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Preferencias</h3>
+              <p className="text-gray-600">Próximamente. Nuevas funcionalidades en desarrollo.</p>
             </div>
           )}
         </div>

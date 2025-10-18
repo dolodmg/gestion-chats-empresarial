@@ -32,15 +32,22 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<User> {
-    const response = await api.get('/auth/me');
-    return response.data;
+    // Docs: GET /api/auth
+    const response = await api.get('/auth');
+    const data = response.data;
+    return {
+      ...data,
+      id: data.id ?? data._id
+    } as User;
   },
 
-  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
-    await api.put('/users/change-password', {
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ msg: string }> {
+    // Docs: POST /api/auth/change-password
+    const res = await api.post('/auth/change-password', {
       currentPassword,
       newPassword
     });
+    return res.data;
   },
 
   logout() {
