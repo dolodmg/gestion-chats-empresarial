@@ -12,6 +12,7 @@ export interface CustomTable {
   tableName: string;
   description: string;
   fields: TableField[];
+  clientId?: string; 
 }
 
 export interface TableRecord {
@@ -32,8 +33,9 @@ export interface TableDataResponse {
 }
 
 export const customTableService = {
-  async getTables(): Promise<CustomTable[]> {
-    const response = await api.get('/custom-tables');
+  async getTables(clientId?: string): Promise<CustomTable[]> {
+    const params = clientId ? { clientId } : {};
+    const response = await api.get('/custom-tables', { params });
     return response.data.tables;
   },
 

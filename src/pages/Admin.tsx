@@ -1,77 +1,85 @@
-import React, { useState } from 'react';
-import { User, DataTable } from '../types';
-import { Plus, Edit2, Trash2, Shield, ShieldCheck, UserX } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; 
+import { User } from '../services/authService';
+import { userService } from '../services/userService';
+import { Plus, Edit2, Trash2, ShieldCheck, UserX, Database } from 'lucide-react'; 
 
 export default function Admin() {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'Admin User',
-      email: 'admin@inteligente.com',
-      role: 'admin',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: '2',
-      name: 'Usuario Normal',
-      email: 'user@inteligente.com',
-      role: 'user',
-      avatar: 'https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: '3',
-      name: 'María González',
-      email: 'maria@empresa.com',
-      role: 'special',
-      avatar: 'https://images.pexels.com/photos/1181519/pexels-photo-1181519.jpeg?auto=compress&cs=tinysrgb&w=400'
-    }
-  ]);
-
-  const [dataTables, setDataTables] = useState<DataTable[]>([
-    {
-      id: '1',
-      name: 'Clientes',
-      columns: ['Nombre', 'Email', 'Teléfono', 'Empresa'],
-      data: [
-        { id: '1', Nombre: 'Juan Pérez', Email: 'juan@email.com', Teléfono: '+54 11 1234-5678', Empresa: 'Tech Corp' },
-        { id: '2', Nombre: 'Ana López', Email: 'ana@email.com', Teléfono: '+54 11 8765-4321', Empresa: 'Innovate SA' }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Productos',
-      columns: ['Nombre', 'Precio', 'Categoría', 'Stock'],
-      data: [
-        { id: '1', Nombre: 'Laptop Pro', Precio: '$1200', Categoría: 'Tecnología', Stock: '15' },
-        { id: '2', Nombre: 'Mouse Inalámbrico', Precio: '$25', Categoría: 'Accesorios', Stock: '50' }
-      ]
-    }
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [errorUsers, setErrorUsers] = useState<string | null>(null);
 
   const [showUserModal, setShowUserModal] = useState(false);
-  const [showTableModal, setShowTableModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editingTable, setEditingTable] = useState<DataTable | null>(null);
 
-  const getRoleIcon = (role: string) => {
+  const navigate = useNavigate(); 
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoadingUsers(true);
+      setErrorUsers(null);
+      try {
+        const fetchedUsers = await userService.getUsers();
+        setUsers(fetchedUsers);
+      } catch (err: any) {
+        setErrorUsers(err.response?.data?.message || 'Error al cargar usuarios');
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
+      try {
+        await userService.deleteUser(userId);
+        setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+      } catch (err: any) {
+        setErrorUsers(err.response?.data?.message || 'Error al eliminar usuario');
+      }
+    }
+  };
+
+  // función para navegar a las tablas del usuario
+  const handleViewTables = (user: User) => {
+    if (user.clientId) {
+      navigate(`/admin/user-tables/${user.clientId}/${user.name}`);
+    } else {
+      // Opcional: manejar usuarios sin clientId
+      alert('Este usuario no tiene un ID de cliente asociado.');
+    }
+  };
+
+  const getRoleIcon = (role: 'admin' | 'client') => {
     switch (role) {
       case 'admin':
         return <ShieldCheck className="w-5 h-5 text-red-600" />;
-      case 'special':
-        return <Shield className="w-5 h-5 text-purple-600" />;
+      case 'client':
       default:
         return <UserX className="w-5 h-5 text-gray-600" />;
     }
   };
 
-  const getRoleColor = (role: string) => {
+  const getRoleColor = (role: 'admin' | 'client') => {
     switch (role) {
       case 'admin':
         return 'bg-red-100 text-red-800';
-      case 'special':
-        return 'bg-purple-100 text-purple-800';
+      case 'client':
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getRoleText = (role: 'admin' | 'client') => {
+    switch (role) {
+      case 'admin':
+        return 'Admin';
+      case 'client':
+        return 'Cliente';
+      default:
+        return role;
     }
   };
 
@@ -79,11 +87,10 @@ export default function Admin() {
     <div className="p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Panel de Administración</h1>
-        <p className="text-gray-600">Gestiona usuarios y tablas de datos del sistema</p>
+        <p className="text-gray-600">Gestiona los usuarios del sistema</p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        {/* Users Management */}
+      <div className="grid grid-cols-1 gap-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -117,110 +124,81 @@ export default function Admin() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <img
-                          className="h-10 w-10 rounded-full object-cover"
-                          src={user.avatar}
-                          alt={user.name}
-                        />
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getRoleIcon(user.role)}
-                        <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${getRoleColor(user.role)}`}>
-                          {user.role}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => {
-                            setEditingUser(user);
-                            setShowUserModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setUsers(users.filter(u => u.id !== user.id))}
-                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                {isLoadingUsers ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
+                      Cargando usuarios...
                     </td>
                   </tr>
-                ))}
+                ) : errorUsers ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-4 text-center text-red-500">
+                      {errorUsers}
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-medium text-gray-600">
+                              {user.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                            </span>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {getRoleIcon(user.role)}
+                          <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${getRoleColor(user.role)}`}>
+                            {getRoleText(user.role)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => handleViewTables(user)}
+                            className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                            title="Ver Tablas"
+                            disabled={!user.clientId} 
+                          >
+                            <Database className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingUser(user);
+                              setShowUserModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
-
-        {/* Data Tables Management */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Tablas de Datos</h2>
-              <button
-                onClick={() => {
-                  setEditingTable(null);
-                  setShowTableModal(true);
-                }}
-                className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nueva Tabla
-              </button>
-            </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            {dataTables.map((table) => (
-              <div key={table.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-medium text-gray-900">{table.name}</h3>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => {
-                        setEditingTable(table);
-                        setShowTableModal(true);
-                      }}
-                      className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setDataTables(dataTables.filter(t => t.id !== table.id))}
-                      className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="text-sm text-gray-600 mb-2">
-                  Columnas: {table.columns.join(', ')}
-                </div>
-                <div className="text-sm text-gray-500">
-                  {table.data.length} registros
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -231,20 +209,6 @@ export default function Admin() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Total Usuarios</p>
               <p className="text-2xl font-semibold text-gray-900">{users.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-green-600" />
-              </div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Tablas de Datos</p>
-              <p className="text-2xl font-semibold text-gray-900">{dataTables.length}</p>
             </div>
           </div>
         </div>
@@ -265,6 +229,33 @@ export default function Admin() {
           </div>
         </div>
       </div>
+
+      {/* Modales (placeholders) */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+            </h3>
+            {/* Aquí iría el formulario de creación/edición de usuario */}
+            <p className="text-gray-600">Formulario de usuario...</p>
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowUserModal(false)}
+                className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => setShowUserModal(false)}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+              >
+                {editingUser ? 'Guardar' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

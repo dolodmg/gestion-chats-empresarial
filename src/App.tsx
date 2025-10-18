@@ -1,3 +1,4 @@
+// src/App.tsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -11,6 +12,7 @@ import MisDatos from './pages/MisDatos';
 import Inscripciones from './pages/Inscripciones';
 import AsistenteIA from './pages/AsistenteIA';
 import Perfil from './pages/Perfil';
+import UserTables from './pages/UserTables';
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -39,6 +41,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="admin">
             <Admin />
+          </ProtectedRoute>
+        }
+      />
+      {/* ruta para las tablas del usuario */}
+      <Route
+        path="/admin/user-tables/:clientId/:userName"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <UserTables />
           </ProtectedRoute>
         }
       />
