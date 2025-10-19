@@ -1,5 +1,3 @@
-// src/App.tsx
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
@@ -13,6 +11,7 @@ import Inscripciones from './pages/Inscripciones';
 import AsistenteIA from './pages/AsistenteIA';
 import Perfil from './pages/Perfil';
 import UserTables from './pages/UserTables';
+import { Toaster } from "@/components/ui/sonner";
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -97,6 +96,7 @@ function App() {
         <ChatProvider>
           <Layout>
             <AppRoutes />
+            <Toaster position='top-right' />
           </Layout>
         </ChatProvider>
       </AuthProvider>

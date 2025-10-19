@@ -11,6 +11,16 @@ export interface CreateUserData {
   whatsappToken?: string;
 }
 
+export interface UpdateUserData {
+    name?: string;
+    email?: string;
+    password?: string; 
+    role?: 'admin' | 'client';
+    clientId?: string;
+    workflowId?: string;
+    whatsappToken?: string;
+}
+
 export const userService = {
   async getUsers(): Promise<User[]> {
     const response = await api.get('/users');
