@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bot, MessageCircle, TrendingUp, Settings, Zap, Brain, BarChart3, PlusCircle, Edit, Trash2, History, Save } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { assistantService, AssistantPromptRecord, GetPromptResponse } from '../services/assistantService';

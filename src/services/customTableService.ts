@@ -1,5 +1,14 @@
 import api from './api';
 
+export interface CreateTableData {
+  tableName: string;
+  description?: string;
+  clientId: string; 
+  collectionName: string; 
+  fields: TableField[]; 
+}
+
+
 export interface TableField {
   name: string;
   type: string;
@@ -33,6 +42,16 @@ export interface TableDataResponse {
 }
 
 export const customTableService = {
+  async createTable(data: CreateTableData): Promise<CustomTable> {
+    if (!data.fields) data.fields = [];
+    const response = await api.post('/custom-tables', data);
+    return response.data.table || response.data;
+  },
+
+  async deleteTable(tableId: string): Promise<void> {
+    await api.delete(`/custom-tables/${tableId}`);
+  },
+  
   async getTables(clientId?: string): Promise<CustomTable[]> {
     const params = clientId ? { clientId } : {};
     const response = await api.get('/custom-tables', { params });
