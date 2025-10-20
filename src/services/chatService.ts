@@ -25,21 +25,59 @@ export interface ChatWithMessages {
   messages: Message[];
 }
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
 export const chatService = {
+  async getChatsPaginated(page = 1, limit = 20, clientId?: string): Promise<PaginatedResponse<Chat>> {
+    const params: any = { page, limit };
+    if (clientId) params.clientId = clientId;
+
+    const response = await api.get('/chats', { params });
+
+    return {
+      data: response.data.chats || [],
+      pagination: response.data.pagination || {
+        page,
+        limit,
+        total: 0,
+        totalPages: 1,
+        hasMore: false
+      }
+    };
+  },
+
+  async getMessagesPaginated(chatId: string, page = 1, limit = 50): Promise<PaginatedResponse<Message>> {
+    const response = await api.get(`/chats/${chatId}`, {
+      params: { page, limit }
+    });
+
+    return {
+      data: response.data.messages || [],
+      pagination: response.data.pagination || {
+        page,
+        limit,
+        total: 0,
+        totalPages: 1,
+        hasMore: false
+      }
+    };
+  },
+
   async getChats(clientId?: string): Promise<Chat[]> {
     const params: any = {};
-    
-    if (clientId) {
-      params.clientId = clientId;
-    }
-    
-    // Agregar parámetros para obtener todos los chats recientes
-    params.limit = 100; // Aumentar límite
-    params.sortBy = 'lastMessageTimestamp';
-    params.sortOrder = 'desc';
-    
+    if (clientId) params.clientId = clientId;
+
     const response = await api.get('/chats', { params });
-    return response.data;
+    return response.data.chats || response.data; 
   },
 
   async getChatWithMessages(chatId: string): Promise<ChatWithMessages> {
