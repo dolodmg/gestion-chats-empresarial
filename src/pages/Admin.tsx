@@ -7,6 +7,7 @@ import { Edit2, Trash2, ShieldCheck, UserX, Database, Loader2 } from 'lucide-rea
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import DeleteUserDialog from '@/components/users/DeleteUserDialog';
+import EditUserDialog from '@/components/users/EditUserDialog';
 
 export default function Admin() {
   const [users, setUsers] = useState<User[]>([]);
@@ -15,6 +16,8 @@ export default function Admin() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showEdit, setShowEdit] = useState(false);
 
   const navigate = useNavigate();
 
@@ -71,9 +74,9 @@ const handleDeleteUser = async () => {
   };
 
   const handleEditUser = (user: User) => {
-       console.log("Editar usuario (no implementado):", user);
-       toast.info("Función no implementada", { description: "La edición de usuarios aún no está disponible." });
-   };
+    setSelectedUser(user);
+    setShowEdit(true);
+  };
 
   const handleOpenDeleteDialog = (user: User) => {
     setUserToDelete(user);
@@ -219,6 +222,18 @@ const handleDeleteUser = async () => {
         userName={userToDelete?.name || ''} 
         isDeleting={isDeleting} 
       />
+      {selectedUser && (
+        <EditUserDialog
+          user={selectedUser}
+          open={showEdit}
+          onOpenChange={setShowEdit}
+          onUserEdited={() => {
+            setShowEdit(false);
+            setSelectedUser(null);
+            fetchUsers();
+          }}
+        />
+      )}
     </div>
   );
 }

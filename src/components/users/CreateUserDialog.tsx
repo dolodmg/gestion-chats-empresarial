@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus } from 'lucide-react';
 import UserForm from './UserForm';
-import { CreateUserData, userService } from '../../services/userService';
+import { CreateUserData, UpdateUserData, userService } from '../../services/userService';
 import { toast } from "sonner";
 
 interface CreateUserDialogProps {
@@ -22,35 +22,26 @@ export default function CreateUserDialog({ onUserCreated }: CreateUserDialogProp
     const [isSaving, setIsSaving] = useState(false);
     const [modalError, setModalError] = useState<string | null>(null);
 
-    const handleSaveUser = async (userData: CreateUserData) => {
-        setModalError(null);
-        setIsSaving(true);
-        try {
-            const newUser = await userService.createUser(userData);
-            console.log("Usuario creado:", newUser);
-
-            // toast de sonner (éxito)
-            toast.success("Usuario Creado", {
-                description: `El usuario ${newUser.name} ha sido creado exitosamente.`,
-            });
-
-            setOpen(false);
-            onUserCreated();
-        } catch (err: any) {
-            console.error("Error creating user:", err);
-            const errorMessage = err.response?.data?.message || 'Error al crear el usuario. Revisa los datos e intenta de nuevo.';
-            setModalError(errorMessage);
-
-            // Usar toast de sonner (error)
-            toast.error("Error al crear usuario", {
-                description: errorMessage,
-            });
-
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
+    const handleSaveUser = async (userData: CreateUserData | UpdateUserData) => {
+  const data = userData as CreateUserData; 
+  setModalError(null);
+  setIsSaving(true);
+  try {
+    const newUser = await userService.createUser(data);
+    toast.success("Usuario creado", {
+      description: `El usuario ${newUser.name} ha sido creado exitosamente.`,
+    });
+    setOpen(false);
+    onUserCreated();
+  } catch (err: any) {
+    console.error("Error creando usuario:", err);
+    const errorMessage = err.response?.data?.msg || err.response?.data?.message || 'Error al crear el usuario.';
+    setModalError(errorMessage);
+    toast.error("Error al crear usuario", { description: errorMessage });
+  } finally {
+    setIsSaving(false);
+  }
+};
     const handleOpenChange = (isOpen: boolean) => {
         if (!isOpen) {
             setModalError(null);
@@ -79,6 +70,7 @@ export default function CreateUserDialog({ onUserCreated }: CreateUserDialogProp
                     onSubmit={handleSaveUser}
                     isSaving={isSaving}
                     onCancel={() => handleOpenChange(false)}
+                    mode='create'
                  />
                  {modalError && !isSaving && (
                     <p className="text-sm text-destructive mt-2 text-center">{modalError}</p>
