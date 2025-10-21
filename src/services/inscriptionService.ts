@@ -3,13 +3,14 @@ import api from './api';
 export interface Inscription {
   _id: string;
   dni: string;
-  nombre: string;
-  email: string;
-  telefono: string;
+  nombreCompleto: string;
+  correo: string;
   provincia: string;
+  localidad: string;
+  codigoPostal: string;
   curso: string;
-  comentarios?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface InscriptionFilters {
@@ -33,26 +34,63 @@ export interface InscriptionResponse {
 
 export interface CreateInscriptionData {
   dni: string;
-  nombre: string;
-  telefono: string;
-  email: string;
-  provincia: string;
+  nombreCompleto: string;
   curso: string;
-  comentarios?: string;
+  correo: string;
+  provincia: string;
+  localidad: string;
+  codigoPostal: string;
 }
 
 export const inscriptionService = {
+  /**
+   * Obtener inscripciones con filtros
+   */
   async getInscriptions(filters: InscriptionFilters = {}): Promise<InscriptionResponse> {
     const response = await api.get('/inscriptions', { params: filters });
     return response.data;
   },
 
-  async createInscription(data: CreateInscriptionData): Promise<Inscription> {
+  /**
+   * Crear nueva inscripción
+   */
+  async createInscription(data: CreateInscriptionData): Promise<{ success: boolean; message: string; inscription: Inscription }> {
     const response = await api.post('/inscriptions', data);
     return response.data;
   },
 
-  async deleteInscription(inscriptionId: string): Promise<void> {
-    await api.delete(`/inscriptions/${inscriptionId}`);
+  /**
+   * Eliminar inscripción
+   */
+  async deleteInscription(inscriptionId: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.delete(`/inscriptions/${inscriptionId}`);
+    return response.data;
+  },
+
+  /**
+   * Obtener estadísticas de inscripciones
+   */
+  async getStats(): Promise<any> {
+    const response = await api.get('/inscriptions/stats');
+    return response.data;
+  },
+
+  /**
+   * Obtener lista de cursos disponibles
+   */
+  async getCourses(): Promise<any> {
+    const response = await api.get('/inscriptions/courses');
+    return response.data;
+  },
+
+  /**
+   * Exportar inscripciones a CSV
+   */
+  async exportToCSV(filters: InscriptionFilters = {}): Promise<Blob> {
+    const response = await api.get('/inscriptions/export/csv', {
+      params: filters,
+      responseType: 'blob'
+    });
+    return response.data;
   }
 };

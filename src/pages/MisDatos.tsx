@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { customTableService, CustomTable, TableRecord } from '../services/customTableService';
-import { Plus, Edit2, Trash2, Search, Download, Filter, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
+import ExportCSVButton from '@/components/ui/export-csv-button';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function MisDatos() {
   const { user } = useAuth();
@@ -111,8 +117,10 @@ export default function MisDatos() {
       setTableData(result.data);
       setPagination(result.pagination);
       setShowAddModal(false);
+      toast.success('Registro creado', { description: 'El registro se ha creado correctamente.' });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al crear el registro');
+      toast.error('Error al crear', { description: err.response?.data?.message || 'Ocurrió un error al crear el registro.' });
     }
   };
 
@@ -135,8 +143,10 @@ export default function MisDatos() {
       setPagination(result.pagination);
       setShowAddModal(false);
       setEditingRecord(null);
+      toast.success('Registro actualizado', { description: 'Los cambios se han guardado correctamente.' });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al actualizar el registro');
+      toast.error('Error al actualizar', { description: err.response?.data?.message || 'Ocurrió un error al actualizar el registro.' });
     }
   };
 
@@ -158,8 +168,10 @@ export default function MisDatos() {
         
         setTableData(result.data);
         setPagination(result.pagination);
+        toast.success('Registro eliminado', { description: 'El registro ha sido eliminado exitosamente.' });
       } catch (err: any) {
         setError(err.response?.data?.message || 'Error al eliminar el registro');
+        toast.error('Error al eliminar', { description: err.response?.data?.message || 'Ocurrió un error al eliminar el registro.' });
       }
     }
   };
@@ -167,6 +179,39 @@ export default function MisDatos() {
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > pagination.totalPages) return;
     setPagination({ ...pagination, page: newPage });
+  };
+
+  // Exportar CSV de los datos visibles usando el componente reutilizable
+  const handleExportCSV = async (): Promise<Blob> => {
+    if (!activeTable) throw new Error('No hay tabla activa para exportar');
+    const headers = activeTable.fields.map((f) => f.label);
+    const keys = activeTable.fields.map((f) => f.name);
+
+    const escapeCSV = (value: any) => {
+      if (value === null || value === undefined) return '';
+      let str = '';
+      if (typeof value === 'object') {
+        try { str = JSON.stringify(value); } catch { str = String(value); }
+      } else if (typeof value === 'boolean') {
+        str = value ? 'true' : 'false';
+      } else {
+        str = String(value);
+      }
+      str = str.replace(/"/g, '""');
+      if (/[",\n\r]/.test(str)) {
+        str = `"${str}"`;
+      }
+      return str;
+    };
+
+    const lines: string[] = [];
+    lines.push(headers.join(','));
+    tableData.forEach((row) => {
+      const line = keys.map((k) => escapeCSV(row[k])).join(',');
+      lines.push(line);
+    });
+    const csv = lines.join('\n');
+    return new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   };
 
   return (
@@ -238,26 +283,27 @@ export default function MisDatos() {
                     </div>
                     
                     <div className="flex items-center space-x-3">
-                      <button className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                        <Download className="w-4 h-4 mr-2" />
-                        Exportar
-                      </button>
+                      <ExportCSVButton
+                        onExport={handleExportCSV}
+                        baseFilename={activeTable.tableName || 'tabla'}
+                        filenameSuffix={`pagina_${pagination.page}`}
+                        onError={(message) => toast.error('Error al exportar', { description: message })}
+                        onSuccess={() => toast.success('Exportado', { description: 'El archivo CSV se ha descargado correctamente.' })}
+                        variant="outline"
+                      />
                       
-                      <button className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                        <Filter className="w-4 h-4 mr-2" />
-                        Filtros
-                      </button>
+                      {/* Botón de filtros eliminado por no usarse actualmente */}
                       
-                      <button
+                      <Button
                         onClick={() => {
                           setEditingRecord(null);
                           setShowAddModal(true);
                         }}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        className="bg-sky-700 hover:bg-sky-800"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         Nuevo Registro
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   
@@ -265,12 +311,12 @@ export default function MisDatos() {
                   <div className="mt-4">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
+                      <Input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Buscar en la tabla..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="pl-10"
                       />
                     </div>
                   </div>
@@ -472,36 +518,41 @@ export default function MisDatos() {
       )}
 
       {/* Modal para Agregar/Editar Registro */}
-      {showAddModal && activeTable && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {editingRecord ? 'Editar Registro' : 'Nuevo Registro'}
-            </h3>
-            <form 
+      {/* Dialog reutilizando componentes UI */}
+      <Dialog open={showAddModal && !!activeTable} onOpenChange={(open) => {
+        if (!open) {
+          setShowAddModal(false);
+          setEditingRecord(null);
+        } else {
+          setShowAddModal(true);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[525px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingRecord ? 'Editar Registro' : 'Nuevo Registro'}</DialogTitle>
+            <DialogDescription>
+              {editingRecord ? 'Modifica los campos necesarios y guarda los cambios.' : 'Completa los campos para agregar un nuevo registro.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {activeTable && (
+            <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData: Record<string, any> = {};
-                
-                // Obtener todos los valores del formulario
                 activeTable.fields.forEach(field => {
-                  const inputElement = e.currentTarget.elements.namedItem(field.name) as (HTMLInputElement | HTMLTextAreaElement) | null;
-                  
+                  const inputElement = (e.currentTarget.elements.namedItem(field.name) as (HTMLInputElement | HTMLTextAreaElement) | null);
                   if (inputElement) {
-                    let resultValue: string | number | boolean = inputElement.value;
-                    
-                    // Convertir según el tipo de campo
-                    if (field.type === 'number' && inputElement.value) {
-                      resultValue = parseFloat(inputElement.value);
+                    let resultValue: string | number | boolean = (inputElement as HTMLInputElement).value;
+                    if (field.type === 'number' && (inputElement as HTMLInputElement).value) {
+                      resultValue = parseFloat((inputElement as HTMLInputElement).value);
                     } else if (field.type === 'boolean') {
                       resultValue = (inputElement as HTMLInputElement).checked;
                     }
-                    
                     formData[field.name] = resultValue;
                   }
                 });
-                
-                // Guardar o actualizar registro
+
                 if (editingRecord) {
                   handleUpdateRecord(editingRecord._id, formData);
                 } else {
@@ -511,13 +562,11 @@ export default function MisDatos() {
               className="space-y-4"
             >
               {activeTable.fields.map((field) => {
-                // Determinar el tipo de input basado en el tipo de campo
                 let inputType = 'text';
                 if (field.type === 'number') inputType = 'number';
                 if (field.type === 'email') inputType = 'email';
                 if (field.type === 'date') inputType = 'date';
-                
-                // Para campos de tipo boolean, usamos checkbox
+
                 if (field.type === 'boolean') {
                   return (
                     <div key={field.name} className="flex items-center">
@@ -526,74 +575,67 @@ export default function MisDatos() {
                         id={field.name}
                         name={field.name}
                         defaultChecked={editingRecord ? editingRecord[field.name] : false}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-blue-600 rounded"
                       />
-                      <label htmlFor={field.name} className="ml-2 text-sm font-medium text-gray-700">
+                      <Label htmlFor={field.name} className="ml-2">
                         {field.label} {field.required && <span className="text-red-500">*</span>}
-                      </label>
+                      </Label>
                     </div>
                   );
                 }
-                
-                // Para campos de tipo textarea
+
                 if (field.type === 'textarea') {
                   return (
                     <div key={field.name}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <Label className="mb-1 block">
                         {field.label} {field.required && <span className="text-red-500">*</span>}
-                      </label>
+                      </Label>
                       <textarea
                         name={field.name}
                         defaultValue={editingRecord ? editingRecord[field.name] : ''}
                         required={field.required}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         rows={4}
                       />
                     </div>
                   );
                 }
-                
-                // Para el resto de los campos, usamos input estándar
+
                 return (
                   <div key={field.name}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Label className="mb-1 block">
                       {field.label} {field.required && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type={inputType}
                       name={field.name}
                       defaultValue={editingRecord ? editingRecord[field.name] : ''}
                       required={field.required}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 );
               })}
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     setShowAddModal(false);
                     setEditingRecord(null);
                   }}
-                  className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50"
                 >
                   Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-                >
+                </Button>
+                <Button type="submit" className="bg-sky-700 hover:bg-sky-800">
                   {editingRecord ? 'Guardar' : 'Crear'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Ver más */}
+          )}
+        </DialogContent>
+      </Dialog>
+            {/* Modal Ver más */}
       {viewText && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
@@ -626,3 +668,4 @@ export default function MisDatos() {
     </div>
   );
 }
+
