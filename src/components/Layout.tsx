@@ -16,7 +16,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="flex h-screen bg-gray-100 flex-col lg:flex-row">
       <Sidebar />
-      <main className="flex-1 w-full flex flex-col min-w-0">
+      <main className="flex-1 w-full flex flex-col min-w-0 overflow-y-auto">
         {children}
       </main>
     </div>
