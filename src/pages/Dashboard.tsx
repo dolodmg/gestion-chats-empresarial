@@ -1,7 +1,9 @@
-import React from 'react';
+// Dashboard.tsx
+
+import React from 'react'; // Importar React completo para useRef
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
-import { format, isToday, isYesterday, isSameDay } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Timer from '../components/Timer';
 import {
@@ -25,10 +27,16 @@ export default function Dashboard() {
     toggleChatMode, 
     sendMessage, 
     takeChatControl,
-    refreshChats 
+    refreshChats,
+    loadMoreChats, // Añadido para scroll infinito
+    hasMore, // Añadido para scroll infinito
+    isLoadingMore // Añadido para scroll infinito
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = React.useState('');
+
+  // Ref para el contenedor de la lista de chats
+  const listRef = React.useRef<HTMLDivElement>(null);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +138,20 @@ export default function Dashboard() {
     });
   }, [chats]);
 
+  // Handler para el evento de scroll
+  const handleScroll = () => {
+    const target = listRef.current;
+    if (target) {
+      const { scrollTop, scrollHeight, clientHeight } = target;
+      
+      // Si el scroll está a 200px o menos del final, cargar más
+      if (scrollTop + clientHeight >= scrollHeight - 200) {
+        // loadMoreChats tiene lógica interna para no duplicar llamadas
+        loadMoreChats(); 
+      }
+    }
+  };
+
   return (
     <div className="flex h-full bg-white">
       {/* Chat List */}
@@ -157,7 +179,12 @@ export default function Dashboard() {
         </div>
 
         {/* Chat List */}
-        <div className="flex-1 overflow-y-auto">
+        <div 
+          ref={listRef} // Asignar el ref
+          onScroll={handleScroll} // Asignar el handler
+          className="flex-1 overflow-y-auto"
+        >
+          {/* Spinner de carga inicial (sólo si no hay chats) */}
           {isLoading && chats.length === 0 && (
             <div className="flex items-center justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -237,6 +264,21 @@ export default function Dashboard() {
             </div>
           ))}
           
+          {/* Indicador de carga para scroll infinito */}
+          {isLoadingMore && (
+            <div className="flex items-center justify-center p-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+
+          {/* Mensaje de fin de lista */}
+          {!isLoadingMore && !hasMore && chats.length > 0 && (
+            <div className="text-center py-6">
+              <p className="text-sm text-gray-500">Fin de las conversaciones</p>
+            </div>
+          )}
+          
+          {/* Mensaje de "No hay chats" (sólo si no está cargando y chats está vacío) */}
           {!isLoading && chats.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

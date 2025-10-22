@@ -1,3 +1,5 @@
+// ChatContext.tsx
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { chatService, Chat, Message } from '../services/chatService';
 import { useAuth } from './AuthContext';
@@ -13,9 +15,15 @@ interface ChatContextType {
   sendMessage: (content: string) => void;
   takeChatControl: (chatId: string) => void;
   refreshChats: () => void;
+  loadMoreChats: () => void; // Para scroll infinito
+  hasMore: boolean; // Para scroll infinito
+  isLoadingMore: boolean; // Para scroll infinito
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
+
+// Límite de chats por página (debe coincidir con el default del backend)
+const CHAT_PAGE_LIMIT = 50;
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -25,6 +33,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Estado para paginación
+  const [skip, setSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // refreshChats (Carga la PRIMERA página)
   const refreshChats = async () => {
     if (!user) return;
     
@@ -33,14 +47,42 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     
     try {
       const clientId = user.role === 'admin' ? undefined : user.clientId;
-      const chatList = await chatService.getChats(clientId);
+      const chatList = await chatService.getChats(clientId, 0, CHAT_PAGE_LIMIT);
+      
       setChats(chatList);
+      setSkip(chatList.length);
+      setHasMore(chatList.length === CHAT_PAGE_LIMIT);
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error al cargar chats');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // loadMoreChats (Carga páginas SIGUIENTES)
+  const loadMoreChats = async () => {
+    if (isLoading || isLoadingMore || !hasMore || !user) return;
+
+    setIsLoadingMore(true);
+    setError(null);
+
+    try {
+      const clientId = user.role === 'admin' ? undefined : user.clientId;
+      const newChats = await chatService.getChats(clientId, skip, CHAT_PAGE_LIMIT);
+
+      if (newChats.length > 0) {
+        setChats(prevChats => [...prevChats, ...newChats]);
+        setSkip(prevSkip => prevSkip + newChats.length);
+      }
+      
+      setHasMore(newChats.length === CHAT_PAGE_LIMIT);
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Error al cargar más chats');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
 
   const loadChatMessages = async (chat: Chat) => {
     try {
@@ -65,16 +107,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeChat]);
 
-  // Auto-refresh chats based on status
-  useEffect(() => {
-    if (!user || chats.length === 0) return;
-
-    const hasHumanChats = chats.some(chat => chat.chatStatus === 'human');
-    const refreshInterval = hasHumanChats ? 10000 : 30000; // 10s for human, 30s for bot
-
-    const interval = setInterval(refreshChats, refreshInterval);
-    return () => clearInterval(interval);
-  }, [user, chats]);
+  // ⬇️ *** INICIO DE LA CORRECCIÓN *** ⬇️
 
   const toggleChatMode = async (chatId: string) => {
     const chat = chats.find(c => c.chatId === chatId);
@@ -83,13 +116,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const newStatus = chat.chatStatus === 'bot' ? 'human' : 'bot';
     
     try {
-      const updatedChat = await chatService.changeChatStatus(chatId, newStatus);
+      // La API devuelve un objeto PARCIAL: { chatId, chatStatus, statusChangeTime }
+      const partialUpdate = await chatService.changeChatStatus(chatId, newStatus);
+      
       setChats(prevChats =>
-        prevChats.map(c => c.chatId === chatId ? updatedChat : c)
+        prevChats.map(c =>
+          c.chatId === chatId
+            // FIX: Combinamos el chat existente (...) con la actualización parcial
+            ? { ...c, ...partialUpdate } 
+            : c
+        )
       );
       
       if (activeChat?.chatId === chatId) {
-        setActiveChat(updatedChat);
+        // Hacemos lo mismo para el chat activo
+        setActiveChat(prevActive => prevActive ? { ...prevActive, ...partialUpdate } : null);
       }
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error al cambiar modo del chat');
@@ -103,7 +144,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const newMessage = await chatService.sendMessage(activeChat.chatId, content);
       setMessages(prev => [...prev, newMessage]);
       
-      // Update last message in chat list
       setChats(prevChats =>
         prevChats.map(chat =>
           chat.chatId === activeChat.chatId
@@ -118,18 +158,28 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const takeChatControl = async (chatId: string) => {
     try {
-      const updatedChat = await chatService.changeChatStatus(chatId, 'human');
+      // La API devuelve un objeto PARCIAL: { chatId, chatStatus, statusChangeTime }
+      const partialUpdate = await chatService.changeChatStatus(chatId, 'human');
+
       setChats(prevChats =>
-        prevChats.map(chat => chat.chatId === chatId ? updatedChat : chat)
+        prevChats.map(chat =>
+          chat.chatId === chatId
+            // FIX: Combinamos el chat existente (...) con la actualización parcial
+            ? { ...chat, ...partialUpdate } 
+            : chat
+        )
       );
       
       if (activeChat?.chatId === chatId) {
-        setActiveChat(updatedChat);
+        // Hacemos lo mismo para el chat activo
+        setActiveChat(prevActive => prevActive ? { ...prevActive, ...partialUpdate } : null);
       }
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error al tomar control del chat');
     }
   };
+
+  // ⬆️ *** FIN DE LA CORRECCIÓN *** ⬆️
 
   return (
     <ChatContext.Provider value={{
@@ -142,7 +192,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       toggleChatMode,
       sendMessage,
       takeChatControl,
-      refreshChats
+      refreshChats,
+      loadMoreChats, // Añadido para scroll infinito
+      hasMore, // Añadido para scroll infinito
+      isLoadingMore // Añadido para scroll infinito
     }}>
       {children}
     </ChatContext.Provider>

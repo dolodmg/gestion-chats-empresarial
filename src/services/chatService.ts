@@ -1,3 +1,5 @@
+// chatService.ts
+
 import api from './api';
 
 export interface Chat {
@@ -26,17 +28,21 @@ export interface ChatWithMessages {
 }
 
 export const chatService = {
-  async getChats(clientId?: string): Promise<Chat[]> {
-    const params: any = {};
+  // ⬇️ MODIFICADO: Añadir skip y limit como argumentos
+  async getChats(clientId: string | undefined, skip: number, limit: number): Promise<Chat[]> {
+    const params: any = {
+      skip, // ⬅️ NUEVO
+      limit // ⬅️ NUEVO
+    };
     
     if (clientId) {
       params.clientId = clientId;
     }
     
-    // Agregar parámetros para obtener todos los chats recientes
-    params.limit = 100; // Aumentar límite
-    params.sortBy = 'lastMessageTimestamp';
-    params.sortOrder = 'desc';
+    // ⛔️ ELIMINADO: Ya no hardcodeamos los params aquí
+    // params.limit = 100;
+    // params.sortBy = 'lastMessageTimestamp';
+    // params.sortOrder = 'desc';
     
     const response = await api.get('/chats', { params });
     return response.data;
