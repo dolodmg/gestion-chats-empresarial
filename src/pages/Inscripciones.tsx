@@ -163,7 +163,7 @@ export default function Inscripciones() {
   };
 
   return (
-    <div className="p-6 h-screen flex flex-col overflow-hidden">
+    <div className="p-4 md:p-6 h-full md:h-screen flex flex-col overflow-hidden">
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Inscripciones</h1>
         <p className="text-gray-600">Gestiona las inscripciones de clientes</p>
@@ -178,7 +178,7 @@ export default function Inscripciones() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 flex-shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-4 flex-shrink-0">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -224,13 +224,13 @@ export default function Inscripciones() {
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden">
         <div className="p-4 border-b border-gray-200 flex-shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Lista de Inscripciones</h2>
               <p className="text-sm text-gray-600">{inscriptions.length} registros</p>
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
               <ExportCSVButton
                 onExport={handleExportWithFilters}
                 baseFilename="inscripciones"
@@ -244,7 +244,7 @@ export default function Inscripciones() {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Buscar por DNI</label>
               <div className="relative">
@@ -333,50 +333,108 @@ export default function Inscripciones() {
               <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
             </div>
           ) : (
-            <div className="table-container flex-1 overflow-y-auto">
-              <table className="w-full table-fixed">
-                <thead className="bg-gray-50 sticky top-0 z-10">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">DNI</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">Nombre Completo</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Correo</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Provincia</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Localidad</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Curso</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Fecha</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {inscriptions.map((insc) => (
-                    <tr key={insc._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words">{insc.dni}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 align-top whitespace-normal break-words">{insc.nombreCompleto}</td>
-                      <td className="px-6 py-4 align-top">
-                        <div className="flex items-center text-sm text-gray-900 whitespace-normal break-words">
-                          <Mail className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+            <>
+              <div className="lg:hidden flex-1 overflow-y-auto space-y-4">
+                {inscriptions.map((insc) => (
+                  <div key={insc._id} className="border border-gray-200 rounded-lg p-4 shadow-sm">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase">DNI</p>
+                        <p className="text-sm text-gray-900">{insc.dni}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase">Nombre completo</p>
+                        <p className="text-sm font-medium text-gray-900">{insc.nombreCompleto}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase">Correo</p>
+                        <div className="flex items-center gap-2 text-sm text-gray-900 break-words">
+                          <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
                           <span>{insc.correo}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 capitalize align-top whitespace-normal break-words">{insc.provincia}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words">{insc.localidad}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words">{insc.curso}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 align-top">
-                        {insc.createdAt ? format(new Date(insc.createdAt), 'dd/MM/yyyy', { locale: es }) : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium align-top">
-                        <button
-                          onClick={() => handleDeleteInscription(insc._id)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 uppercase">Provincia</p>
+                          <p className="text-sm text-gray-900 capitalize">{insc.provincia}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 uppercase">Localidad</p>
+                          <p className="text-sm text-gray-900">{insc.localidad}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase">Curso</p>
+                        <p className="text-sm text-gray-900">{insc.curso}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase">Fecha</p>
+                        <p className="text-sm text-gray-900">
+                          {insc.createdAt ? format(new Date(insc.createdAt), 'dd/MM/yyyy', { locale: es }) : '-'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => handleDeleteInscription(insc._id)}
+                        className="flex items-center gap-2 text-red-600 hover:text-red-800 px-3 py-2 rounded-md border border-red-200 hover:bg-red-50 text-sm font-medium"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden lg:block flex-1 overflow-y-auto">
+                <div className="table-container">
+                  <table className="w-full table-fixed">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">DNI</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">Nombre Completo</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Correo</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Provincia</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Localidad</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Curso</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Fecha</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {inscriptions.map((insc) => (
+                        <tr key={insc._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words">{insc.dni}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900 align-top whitespace-normal break-words">{insc.nombreCompleto}</td>
+                          <td className="px-6 py-4 align-top">
+                            <div className="flex items-center text-sm text-gray-900 whitespace-normal break-words">
+                              <Mail className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+                              <span>{insc.correo}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 capitalize align-top whitespace-normal break-words">{insc.provincia}</td>
+                          <td className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words">{insc.localidad}</td>
+                          <td className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words">{insc.curso}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 align-top">
+                            {insc.createdAt ? format(new Date(insc.createdAt), 'dd/MM/yyyy', { locale: es }) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium align-top">
+                            <button
+                              onClick={() => handleDeleteInscription(insc._id)}
+                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
 
           {!isLoadingData && inscriptions.length === 0 && (
@@ -391,12 +449,12 @@ export default function Inscripciones() {
         </div>
 
         {inscriptions.length > 0 && (
-          <div className="px-6 py-3 flex items-center justify-between border-t border-gray-200 flex-shrink-0">
+          <div className="px-4 sm:px-6 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 flex-shrink-0">
             <div className="text-sm text-gray-700">
               Mostrando <span className="font-medium">{inscriptions.length}</span> de{' '}
               <span className="font-medium">{pagination.total}</span> registros
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center flex-wrap gap-1">
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={pagination.page === 1}

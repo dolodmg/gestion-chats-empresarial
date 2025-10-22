@@ -1,6 +1,4 @@
-// Dashboard.tsx
-
-import React from 'react'; // Importar React completo para useRef
+import React from 'react'; 
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -13,7 +11,8 @@ import {
   Send,
   MoreHorizontal,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  ArrowLeft
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -34,9 +33,36 @@ export default function Dashboard() {
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = React.useState('');
+  const [isMobile, setIsMobile] = React.useState(false);
+  const [showMobileChatList, setShowMobileChatList] = React.useState(false);
 
   // Ref para el contenedor de la lista de chats
   const listRef = React.useRef<HTMLDivElement>(null);
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  React.useEffect(() => {
+    if (isMobile) {
+      setShowMobileChatList(true);
+    } else {
+      setShowMobileChatList(false);
+    }
+  }, [isMobile]);
+
+  React.useEffect(() => {
+    if (!activeChat && isMobile) {
+      setShowMobileChatList(true);
+    }
+  }, [activeChat, isMobile]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +143,26 @@ export default function Dashboard() {
 
   const messageGroups = groupMessagesByDate(messages);
 
+  const scrollMessagesToBottom = React.useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    setTimeout(() => {
+      container.scrollTop = container.scrollHeight;
+    }, 0);
+  }, []);
+
+  React.useEffect(() => {
+    if (!activeChat) return;
+    scrollMessagesToBottom();
+  }, [messages, activeChat?.chatId, showMobileChatList, scrollMessagesToBottom]);
+
+  const handleChatSelect = (chat: typeof chats[number]) => {
+    setActiveChat(chat);
+    if (isMobile) {
+      setShowMobileChatList(false);
+    }
+  };
+
   // Sort chats by last message timestamp (most recent first)
   const sortedChats = React.useMemo(() => {
     return [...chats].sort((a, b) => {
@@ -153,9 +199,14 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-full bg-white">
+    <div className="flex flex-1 flex-col lg:flex-row min-h-0 bg-white relative">
       {/* Chat List */}
-      <div className="w-1/3 border-r border-gray-200 flex flex-col">
+      <div
+        className={`${
+          isMobile && !showMobileChatList ? 'hidden' : 'flex'
+        } w-full lg:w-1/3 border-gray-200 flex flex-col border-b lg:border-b-0 lg:border-r min-h-0 
+        absolute inset-0 lg:static lg:inset-auto z-10`}
+      >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
@@ -194,7 +245,7 @@ export default function Dashboard() {
           {sortedChats.map((chat) => (
             <div
               key={chat.chatId}
-              onClick={() => setActiveChat(chat)}
+              onClick={() => handleChatSelect(chat)}
               className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                 activeChat?.chatId === chat.chatId ? 'bg-blue-50 border-blue-200' : ''
               }`}
@@ -292,13 +343,27 @@ export default function Dashboard() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div
+      className={`${
+        isMobile && showMobileChatList ? 'hidden' : 'flex'
+      } flex-1 flex flex-col min-h-0 
+      absolute inset-0 lg:static lg:inset-auto`}
+      >
         {activeChat ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+            <div className="border-b border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-3 w-full lg:w-auto">
+                  {isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMobileChatList(true)}
+                      className="lg:hidden text-gray-600 hover:text-gray-900 transition-colors"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                  )}
                   <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-gray-600">
                       {activeChat.contactName?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'U'}
@@ -315,9 +380,9 @@ export default function Dashboard() {
                   </div>
                 </div>
                 
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-col gap-3 w-full lg:w-auto">
                   {activeChat.statusChangeTime && activeChat.chatStatus === 'human' && (
-                    <div className="flex items-center space-x-2 bg-orange-50 px-3 py-1 rounded-lg">
+                    <div className="flex items-center justify-between sm:justify-center gap-2 bg-orange-50 px-3 py-2 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-orange-600" />
                       <Timer 
                         statusChangeTime={activeChat.statusChangeTime}
@@ -328,29 +393,29 @@ export default function Dashboard() {
                   
                   <button
                     onClick={() => toggleChatMode(activeChat.chatId)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto flex items-center justify-center gap-2 ${
                       activeChat.chatStatus === 'bot'
                         ? 'bg-green-100 text-green-700 hover:bg-green-200'
                         : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                     }`}
                   >
                     {activeChat.chatStatus === 'bot' ? (
-                      <div className="flex items-center space-x-2">
+                      <>
                         <Bot className="w-4 h-4" />
                         <span>Modo Bot</span>
-                      </div>
+                      </>
                     ) : (
-                      <div className="flex items-center space-x-2">
+                      <>
                         <User className="w-4 h-4" />
                         <span>Control Manual</span>
-                      </div>
+                      </>
                     )}
                   </button>
                   
                   {activeChat.chatStatus === 'bot' && (
                     <button
                       onClick={() => takeChatControl(activeChat.chatId)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium w-full sm:w-auto flex items-center justify-center gap-2"
                     >
                       Tomar Control
                     </button>
@@ -360,7 +425,10 @@ export default function Dashboard() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4"
+            >
               {Object.keys(messageGroups).sort().map(dateKey => (
                 <div key={dateKey}>
                   {/* Date Separator */}

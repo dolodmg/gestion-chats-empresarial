@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { customTableService, CustomTable, TableRecord } from '../services/customTableService';
 import { Plus, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
@@ -245,17 +245,17 @@ export default function MisDatos() {
 
       {/* Tablas disponibles */}
       {!isLoadingTables && tables.length > 0 && (
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-start gap-6">
           {/* Navegación de tablas */}
-          <div className="lg:w-1/4">
+          <div className="w-full lg:w-1/4">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <h3 className="font-medium text-gray-900 mb-4">Tablas Disponibles</h3>
-              <nav className="space-y-2">
+              <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-2 lg:overflow-visible">
                 {tables.map((table) => (
                   <button
                     key={table._id}
                     onClick={() => setActiveTable(table)}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                    className={`px-3 py-2 rounded-lg transition-colors text-left min-w-[200px] lg:min-w-0 ${
                       activeTable?._id === table._id
                         ? 'bg-blue-100 text-blue-700 font-medium'
                         : 'text-gray-700 hover:bg-gray-100'
@@ -276,21 +276,23 @@ export default function MisDatos() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                 {/* Header */}
                 <div className="p-6 border-b border-gray-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1">
                       <h2 className="text-lg font-semibold text-gray-900">{activeTable.tableName}</h2>
                       <p className="text-sm text-gray-600">{tableData.length} registros</p>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
-                      <ExportCSVButton
-                        onExport={handleExportCSV}
-                        baseFilename={activeTable.tableName || 'tabla'}
-                        filenameSuffix={`pagina_${pagination.page}`}
-                        onError={(message) => toast.error('Error al exportar', { description: message })}
-                        onSuccess={() => toast.success('Exportado', { description: 'El archivo CSV se ha descargado correctamente.' })}
-                        variant="outline"
-                      />
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 w-full md:w-auto">
+                      <div className="w-full sm:w-auto">
+                        <ExportCSVButton
+                          onExport={handleExportCSV}
+                          baseFilename={activeTable.tableName || 'tabla'}
+                          filenameSuffix={`pagina_${pagination.page}`}
+                          onError={(message) => toast.error('Error al exportar', { description: message })}
+                          onSuccess={() => toast.success('Exportado', { description: 'El archivo CSV se ha descargado correctamente.' })}
+                          variant="outline"
+                        />
+                      </div>
                       
                       {/* Botón de filtros eliminado por no usarse actualmente */}
                       
@@ -299,10 +301,10 @@ export default function MisDatos() {
                           setEditingRecord(null);
                           setShowAddModal(true);
                         }}
-                        className="bg-sky-700 hover:bg-sky-800"
+                        className="w-full sm:w-auto bg-sky-700 hover:bg-sky-800"
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Nuevo Registro
+                        Nuevo registro
                       </Button>
                     </div>
                   </div>
@@ -322,34 +324,19 @@ export default function MisDatos() {
                   </div>
                 </div>
 
-                {/* Tabla */}
-                {/* Evitar scroll horizontal; truncar texto con modal "Ver más" */}
-                <div className="overflow-x-hidden">
-                  {isLoadingData ? (
-                    <div className="flex justify-center items-center p-12">
-                      <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                    </div>
-                  ) : (
-                    <div className="table-container" style={{ maxHeight: "500px", overflowY: "auto" }}>
-                      <table className="w-full table-fixed">
-                        <thead className="bg-gray-50 sticky top-0 z-10">
-                          <tr>
-                            {activeTable.fields.map((field) => (
-                              <th
-                                key={field.name}
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                {field.label}
-                              </th>
-                            ))}
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Acciones
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {tableData.map((row) => (
-                            <tr key={row._id} className="hover:bg-gray-50">
+                {/* Vista de datos */}
+                <div className="space-y-4">
+                  {/* Mobile cards */}
+                  <div className="lg:hidden">
+                    {isLoadingData ? (
+                      <div className="flex justify-center items-center p-12">
+                        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {tableData.map((row) => (
+                          <div key={row._id} className="border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div className="space-y-3">
                               {activeTable.fields.map((field) => {
                                 const rawValue = row[field.name];
                                 const isString = typeof rawValue === 'string';
@@ -358,29 +345,29 @@ export default function MisDatos() {
                                 let fullText = '';
                                 if (isString) {
                                   fullText = rawValue as string;
-                                  display = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
+                                  display = fullText.length > 120 ? `${fullText.slice(0, 120)}…` : fullText;
                                 } else if (isObject) {
                                   try {
                                     fullText = JSON.stringify(rawValue);
-                                    display = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
+                                    display = fullText.length > 120 ? `${fullText.slice(0, 120)}…` : fullText;
                                   } catch {
                                     fullText = String(rawValue);
                                     display = fullText;
                                   }
                                 } else if (rawValue !== undefined && rawValue !== null) {
                                   fullText = String(rawValue);
-                                  display = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
+                                  display = fullText.length > 120 ? `${fullText.slice(0, 120)}…` : fullText;
                                 }
 
-                                const isTruncated = fullText.length > 100;
+                                const isTruncated = fullText.length > 120;
 
                                 return (
-                                  <td
-                                    key={field.name}
-                                    className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words max-w-xs"
-                                  >
+                                  <div key={field.name} className="text-sm text-gray-900">
+                                    <p className="font-medium text-gray-600 uppercase tracking-wide text-xs mb-1">
+                                      {field.label}
+                                    </p>
                                     <div className="flex items-start gap-2">
-                                      <span>{display}</span>
+                                      <span>{display || <span className="text-gray-400">Sin datos</span>}</span>
                                       {isTruncated && (
                                         <button
                                           type="button"
@@ -391,43 +378,143 @@ export default function MisDatos() {
                                         </button>
                                       )}
                                     </div>
-                                  </td>
+                                  </div>
                                 );
                               })}
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div className="flex items-center justify-end space-x-2">
-                                  <button
-                                    onClick={() => {
-                                      setEditingRecord(row);
-                                      setShowAddModal(true);
-                                    }}
-                                    className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                            </div>
+                            <div className="mt-4 flex flex-col sm:flex-row sm:justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditingRecord(row);
+                                  setShowAddModal(true);
+                                }}
+                                className="flex items-center justify-center gap-2 rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRecord(row._id)}
+                                className="flex items-center justify-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden lg:block">
+                    {isLoadingData ? (
+                      <div className="flex justify-center items-center p-12">
+                        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="table-container max-h-[500px] overflow-y-auto">
+                        <div className="overflow-x-auto">
+                          <table className="w-full table-fixed">
+                            <thead className="bg-gray-50 sticky top-0 z-10">
+                              <tr>
+                                {activeTable.fields.map((field) => (
+                                  <th
+                                    key={field.name}
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                   >
-                                    <Edit2 className="w-4 h-4" />
-                                  </button>
-                                  <button 
-                                    onClick={() => handleDeleteRecord(row._id)}
-                                    className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50">
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                                    {field.label}
+                                  </th>
+                                ))}
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Acciones
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {tableData.map((row) => (
+                                <tr key={row._id} className="hover:bg-gray-50">
+                                  {activeTable.fields.map((field) => {
+                                    const rawValue = row[field.name];
+                                    const isString = typeof rawValue === 'string';
+                                    const isObject = rawValue && typeof rawValue === 'object';
+                                    let display = '';
+                                    let fullText = '';
+                                    if (isString) {
+                                      fullText = rawValue as string;
+                                      display = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
+                                    } else if (isObject) {
+                                      try {
+                                        fullText = JSON.stringify(rawValue);
+                                        display = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
+                                      } catch {
+                                        fullText = String(rawValue);
+                                        display = fullText;
+                                      }
+                                    } else if (rawValue !== undefined && rawValue !== null) {
+                                      fullText = String(rawValue);
+                                      display = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
+                                    }
+
+                                    const isTruncated = fullText.length > 100;
+
+                                    return (
+                                      <td
+                                        key={field.name}
+                                        className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words max-w-xs"
+                                      >
+                                        <div className="flex items-start gap-2">
+                                          <span>{display}</span>
+                                          {isTruncated && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setViewText({ label: field.label, value: fullText })}
+                                              className="text-blue-600 hover:text-blue-800 text-xs underline"
+                                            >
+                                              Ver más
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div className="flex items-center justify-end space-x-2">
+                                      <button
+                                        onClick={() => {
+                                          setEditingRecord(row);
+                                          setShowAddModal(true);
+                                        }}
+                                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                      </button>
+                                      <button 
+                                        onClick={() => handleDeleteRecord(row._id)}
+                                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50">
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Paginación mejorada */}
                 {tableData.length > 0 && (
-                  <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+                  <div className="px-4 sm:px-6 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200">
                     <div className="text-sm text-gray-700">
                       Mostrando <span className="font-medium">{tableData.length}</span> de{' '}
                       <span className="font-medium">{pagination.total}</span> registros
                     </div>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center flex-wrap gap-1">
                       <button
                         onClick={() => handlePageChange(1)}
                         disabled={pagination.page === 1}
@@ -529,7 +616,7 @@ export default function MisDatos() {
       }}>
         <DialogContent className="sm:max-w-[525px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingRecord ? 'Editar Registro' : 'Nuevo Registro'}</DialogTitle>
+            <DialogTitle>{editingRecord ? 'Editar registro' : 'Nuevo registro'}</DialogTitle>
             <DialogDescription>
               {editingRecord ? 'Modifica los campos necesarios y guarda los cambios.' : 'Completa los campos para agregar un nuevo registro.'}
             </DialogDescription>
@@ -618,6 +705,7 @@ export default function MisDatos() {
 
               <div className="flex justify-end space-x-3 pt-4">
                 <Button
+                  className='bg-red-700 hover:bg-red-800 hover:cursor-pointer hover:text-white text-white'
                   type="button"
                   variant="outline"
                   onClick={() => {
@@ -627,7 +715,7 @@ export default function MisDatos() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" className="bg-sky-700 hover:bg-sky-800">
+                <Button type="submit" className="bg-sky-700 hover:bg-sky-800 hover:cursor-pointer">
                   {editingRecord ? 'Guardar' : 'Crear'}
                 </Button>
               </div>
