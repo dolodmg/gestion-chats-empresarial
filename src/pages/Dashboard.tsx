@@ -27,16 +27,15 @@ export default function Dashboard() {
     sendMessage, 
     takeChatControl,
     refreshChats,
-    loadMoreChats, // Añadido para scroll infinito
-    hasMore, // Añadido para scroll infinito
-    isLoadingMore // Añadido para scroll infinito
+    loadMoreChats,
+    hasMore,
+    isLoadingMore
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = React.useState('');
   const [isMobile, setIsMobile] = React.useState(false);
   const [showMobileChatList, setShowMobileChatList] = React.useState(false);
 
-  // Ref para el contenedor de la lista de chats
   const listRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -119,7 +118,7 @@ export default function Dashboard() {
     }
   };
 
-  // Group messages by date
+  // ✅ Mejorar agrupación de mensajes con ordenamiento
   const groupMessagesByDate = (messages: any[]) => {
     const groups: { [key: string]: any[] } = {};
     
@@ -136,6 +135,13 @@ export default function Dashboard() {
       } catch {
         // Skip invalid dates
       }
+    });
+    
+    // ✅ Ordenar mensajes dentro de cada grupo por timestamp
+    Object.keys(groups).forEach(dateKey => {
+      groups[dateKey].sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
     });
     
     return groups;
@@ -166,33 +172,26 @@ export default function Dashboard() {
   // Sort chats by last message timestamp (most recent first)
   const sortedChats = React.useMemo(() => {
     return [...chats].sort((a, b) => {
-      // Handle missing timestamps
       if (!a.lastMessageTimestamp && !b.lastMessageTimestamp) return 0;
-      if (!a.lastMessageTimestamp) return 1; // a goes to end
-      if (!b.lastMessageTimestamp) return -1; // b goes to end
+      if (!a.lastMessageTimestamp) return 1;
+      if (!b.lastMessageTimestamp) return -1;
       
-      // Parse dates and handle invalid dates
       const dateA = new Date(a.lastMessageTimestamp);
       const dateB = new Date(b.lastMessageTimestamp);
       
-      // Check for invalid dates
       const timeA = isNaN(dateA.getTime()) ? 0 : dateA.getTime();
       const timeB = isNaN(dateB.getTime()) ? 0 : dateB.getTime();
       
-      // Sort descending (newest first)
       return timeB - timeA;
     });
   }, [chats]);
 
-  // Handler para el evento de scroll
   const handleScroll = () => {
     const target = listRef.current;
     if (target) {
       const { scrollTop, scrollHeight, clientHeight } = target;
       
-      // Si el scroll está a 200px o menos del final, cargar más
       if (scrollTop + clientHeight >= scrollHeight - 200) {
-        // loadMoreChats tiene lógica interna para no duplicar llamadas
         loadMoreChats(); 
       }
     }
@@ -210,112 +209,92 @@ export default function Dashboard() {
         {/* Header */}
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Conversaciones</h2>
-              <p className="text-sm text-gray-600">{chats.length} chats activos</p>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Conversaciones</h2>
             <button
               onClick={refreshChats}
               disabled={isLoading}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+              title="Actualizar chats"
             >
               <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
+        </div>
+
+        {/* Chat List con scroll infinito */}
+        <div 
+          ref={listRef} 
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto"
+        >
           {error && (
-            <div className="mt-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+            <div className="m-4 p-4 bg-red-50 text-red-700 rounded-lg">
               {error}
             </div>
           )}
-        </div>
 
-        {/* Chat List */}
-        <div 
-          ref={listRef} // Asignar el ref
-          onScroll={handleScroll} // Asignar el handler
-          className="flex-1 overflow-y-auto"
-        >
-          {/* Spinner de carga inicial (sólo si no hay chats) */}
-          {isLoading && chats.length === 0 && (
+          {isLoading && chats.length === 0 ? (
             <div className="flex items-center justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
-          )}
-          
-          {sortedChats.map((chat) => (
-            <div
-              key={chat.chatId}
-              onClick={() => handleChatSelect(chat)}
-              className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                activeChat?.chatId === chat.chatId ? 'bg-blue-50 border-blue-200' : ''
-              }`}
-            >
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="relative">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-gray-600">
-                        {chat.contactName?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'U'}
-                      </span>
-                    </div>
-                    {chat.chatStatus === 'bot' ? (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                        <Bot className="w-3 h-3 text-white" />
-                      </div>
-                    ) : (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
-                        <User className="w-3 h-3 text-white" />
-                      </div>
-                    )}
+          ) : (
+            sortedChats.map((chat) => (
+              <button
+                key={chat.chatId}
+                onClick={() => handleChatSelect(chat)}
+                className={`w-full text-left p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 ${
+                  activeChat?.chatId === chat.chatId ? 'bg-blue-50' : ''
+                }`}
+              >
+                <div className="flex items-start space-x-3">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-medium text-gray-600">
+                      {chat.contactName?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'U'}
+                    </span>
                   </div>
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-medium text-gray-900 truncate pr-2">
-                      {chat.contactName || chat.phoneNumber}
-                    </h3>
-                    {chat.lastMessageTimestamp && (
-                      <span className="text-xs text-gray-500 flex-shrink-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-medium text-gray-900 truncate">
+                        {chat.contactName || chat.phoneNumber}
+                      </h3>
+                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
                         {formatChatDate(chat.lastMessageTimestamp)}
                       </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600 truncate mb-2">{chat.lastMessage}</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center space-x-2">
-                        {chat.chatStatus === 'bot' ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <Bot className="w-3 h-3 mr-1" />
-                            Bot
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                            <User className="w-3 h-3 mr-1" />
-                            Manual
-                          </span>
-                        )}
-                        {chat.statusChangeTime && chat.chatStatus === 'human' && (
-                          <Timer 
-                            statusChangeTime={chat.statusChangeTime}
-                            onExpire={() => toggleChatMode(chat.chatId)}
-                          />
-                        )}
-                      </div>
                     </div>
-                    {chat.unreadCount > 0 && (
-                      <span className="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium bg-blue-600 text-white min-w-[20px]">
-                        {chat.unreadCount}
-                      </span>
-                    )}
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                      <span className="text-xs text-gray-500 truncate">{chat.phoneNumber}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-600 truncate pr-2">
+                        {chat.lastMessage}
+                      </p>
+                      {chat.unreadCount > 0 && (
+                        <span className="bg-blue-600 text-white text-xs rounded-full px-2 py-1 min-w-[1.5rem] text-center flex-shrink-0">
+                          {chat.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center mt-2">
+                      {chat.chatStatus === 'bot' ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          <Bot className="w-3 h-3 mr-1" />
+                          Bot
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                          <User className="w-3 h-3 mr-1" />
+                          Manual
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
-          
-          {/* Indicador de carga para scroll infinito */}
+              </button>
+            ))
+          )}
+
+          {/* Indicador de carga de más chats */}
           {isLoadingMore && (
             <div className="flex items-center justify-center p-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -329,7 +308,7 @@ export default function Dashboard() {
             </div>
           )}
           
-          {/* Mensaje de "No hay chats" (sólo si no está cargando y chats está vacío) */}
+          {/* Mensaje de "No hay chats" */}
           {!isLoading && chats.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -438,7 +417,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  {/* Messages for this date */}
+                  {/* Messages for this date - ya ordenados por timestamp */}
                   {messageGroups[dateKey].map((message) => (
                     <div
                       key={message.id}

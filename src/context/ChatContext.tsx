@@ -1,8 +1,9 @@
 // ChatContext.tsx
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { chatService, Chat, Message } from '../services/chatService';
 import { useAuth } from './AuthContext';
+import sseService from '../services/sseService';
 
 interface ChatContextType {
   chats: Chat[];
@@ -15,31 +16,35 @@ interface ChatContextType {
   sendMessage: (content: string) => void;
   takeChatControl: (chatId: string) => void;
   refreshChats: () => void;
-  loadMoreChats: () => void; // Para scroll infinito
-  hasMore: boolean; // Para scroll infinito
-  isLoadingMore: boolean; // Para scroll infinito
+  loadMoreChats: () => void;
+  hasMore: boolean;
+  isLoadingMore: boolean;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Límite de chats por página (debe coincidir con el default del backend)
 const CHAT_PAGE_LIMIT = 50;
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const token = localStorage.getItem('auth_token');
+
+  console.log('🔍 DEBUG ChatContext:', { 
+    user: user ? 'existe' : 'null', 
+    token: token ? 'existe' : 'null' 
+  });
+
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado para paginación
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // refreshChats (Carga la PRIMERA página)
-  const refreshChats = async () => {
+  const refreshChats = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
@@ -57,10 +62,124 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  // loadMoreChats (Carga páginas SIGUIENTES)
-  const loadMoreChats = async () => {
+  const loadChatMessages = useCallback(async (chat: Chat) => {
+    try {
+      const chatWithMessages = await chatService.getChatWithMessages(chat.chatId);
+      // ✅ Ordenar mensajes por timestamp al cargarlos
+      const sortedMessages = chatWithMessages.messages.sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+      setMessages(sortedMessages);
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Error al cargar mensajes');
+    }
+  }, []);
+
+  
+
+  // 🆕 Envolver los handlers de SSE en useCallback
+  // Reemplaza tu 'handleNewMessage' (líneas 74-126)
+  const handleNewMessage = useCallback((data: any) => {
+    const { chatId, sender, content, timestamp } = data;
+
+    console.log('📨 Nuevo mensaje SSE:', chatId, '- sender:', sender);
+
+    // ✅ Si es del chat activo, RECARGAR todos los mensajes
+    if (activeChat && activeChat.chatId === chatId) {
+      console.log('🔄 Recargando mensajes del chat activo');
+      loadChatMessages(activeChat);
+    }
+
+    // Actualizar lista de chats (último mensaje)
+    setChats(prevChats => {
+      const existingChat = prevChats.find(c => c.chatId === chatId);
+      
+      if (existingChat) {
+        return [
+          { 
+            ...existingChat, 
+            lastMessage: content, 
+            lastMessageTimestamp: timestamp,
+            unreadCount: (activeChat?.chatId === chatId || sender !== 'user') 
+              ? existingChat.unreadCount 
+              : existingChat.unreadCount + 1
+          },
+          ...prevChats.filter(c => c.chatId !== chatId)
+        ];
+      }
+      
+      // Si es un chat nuevo, hacer refresh
+      refreshChats();
+      return prevChats;
+    });
+  }, [activeChat, refreshChats, loadChatMessages]);
+
+  const handleChatStatusChanged = useCallback((data: any) => {
+    const { chatId, chatStatus, statusChangeTime } = data;
+
+    console.log('🔄 Estado cambiado SSE:', chatId, '->', chatStatus);
+
+    setChats(prevChats =>
+      prevChats.map(chat =>
+        chat.chatId === chatId
+          ? { ...chat, chatStatus, statusChangeTime }
+          : chat
+      )
+    );
+
+    if (activeChat?.chatId === chatId) {
+      setActiveChat(prev => prev ? { ...prev, chatStatus, statusChangeTime } : null);
+    }
+  }, [activeChat]);
+
+  const handleChatUpdated = useCallback((data: any) => {
+    console.log('🔔 Chat actualizado SSE:', data.chatId);
+
+    setChats(prevChats =>
+      prevChats.map(chat =>
+        chat.chatId === data.chatId
+          ? { ...chat, ...data }
+          : chat
+      )
+    );
+
+    if (activeChat?.chatId === data.chatId) {
+      setActiveChat(prev => prev ? { ...prev, ...data } : null);
+    }
+  }, [activeChat]);
+
+  // Conectar a SSE
+  useEffect(() => {
+    if (user && token) {
+      console.log('🔌 Conectando a SSE...');
+      sseService.connect(token);
+
+      const unsubscribe = sseService.subscribe((event) => {
+        switch (event.type) {
+          case 'new_message':
+            handleNewMessage(event.data);
+            break;
+          case 'chat_status_changed':
+            handleChatStatusChanged(event.data);
+            break;
+          case 'chat_updated':
+            handleChatUpdated(event.data);
+            break;
+        }
+      });
+
+      return () => {
+        unsubscribe();
+        sseService.disconnect();
+      };
+    }
+  }, [user, token, handleNewMessage, handleChatStatusChanged, handleChatUpdated]);
+
+
+  // Reemplaza tu 'loadMoreChats' (líneas 190-212)
+  const loadMoreChats = useCallback(async () => {
     if (isLoading || isLoadingMore || !hasMore || !user) return;
 
     setIsLoadingMore(true);
@@ -81,105 +200,126 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoadingMore(false);
     }
-  };
+  }, [isLoading, isLoadingMore, hasMore, user, skip]); // 👈 Añadir useCallback y dependencias
 
+  
 
-  const loadChatMessages = async (chat: Chat) => {
-    try {
-      const chatWithMessages = await chatService.getChatWithMessages(chat.chatId);
-      setMessages(chatWithMessages.messages);
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Error al cargar mensajes');
-    }
-  };
-
+  // Reemplaza tu useEffect de 'user' (línea 214)
   useEffect(() => {
     if (user) {
       refreshChats();
     }
-  }, [user]);
+  }, [user, refreshChats]);
 
+  // Reemplaza tu useEffect de 'activeChat' (línea 222)
   useEffect(() => {
     if (activeChat) {
       loadChatMessages(activeChat);
     } else {
       setMessages([]);
     }
-  }, [activeChat]);
+  }, [activeChat, loadChatMessages]); // 👈 CAMBIO CRÍTICO: Añadir 'loadChatMessages'
 
-  // ⬇️ *** INICIO DE LA CORRECCIÓN *** ⬇️
-
-  const toggleChatMode = async (chatId: string) => {
+  // Reemplaza tu 'toggleChatMode' (líneas 230-256)
+  const toggleChatMode = useCallback(async (chatId: string) => {
     const chat = chats.find(c => c.chatId === chatId);
     if (!chat) return;
 
     const newStatus = chat.chatStatus === 'bot' ? 'human' : 'bot';
     
     try {
-      // La API devuelve un objeto PARCIAL: { chatId, chatStatus, statusChangeTime }
       const partialUpdate = await chatService.changeChatStatus(chatId, newStatus);
       
       setChats(prevChats =>
         prevChats.map(c =>
-          c.chatId === chatId
-            // FIX: Combinamos el chat existente (...) con la actualización parcial
-            ? { ...c, ...partialUpdate } 
-            : c
+          c.chatId === chatId ? { ...c, ...partialUpdate } : c
         )
       );
       
       if (activeChat?.chatId === chatId) {
-        // Hacemos lo mismo para el chat activo
         setActiveChat(prevActive => prevActive ? { ...prevActive, ...partialUpdate } : null);
       }
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error al cambiar modo del chat');
     }
-  };
+  }, [chats, activeChat]); // 👈 Añadir useCallback y dependencias
 
-  const sendMessage = async (content: string) => {
+  // Reemplaza tu 'sendMessage' (líneas 258-284)
+  const sendMessage = useCallback(async (content: string) => {
     if (!activeChat) return;
 
     try {
+      // ✅ NO agregar el mensaje optimísticamente - esperar la respuesta del servidor
       const newMessage = await chatService.sendMessage(activeChat.chatId, content);
-      setMessages(prev => [...prev, newMessage]);
       
+      console.log('📤 Mensaje enviado, respuesta:', newMessage);
+      
+      // ✅ Agregar el mensaje SOLO si no llegó ya por SSE
+      setMessages(prev => {
+        if (prev.some(m => m.id === newMessage.id)) {
+          console.log('⚠️ Mensaje ya existe (llegó por SSE primero)');
+          return prev;
+        }
+        
+        const newMessages = [...prev, newMessage];
+        
+        // Ordenar por timestamp
+        return newMessages.sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      });
+      
+      // Actualizar el último mensaje en la lista de chats
       setChats(prevChats =>
         prevChats.map(chat =>
           chat.chatId === activeChat.chatId
-            ? { ...chat, lastMessage: content, lastMessageTimestamp: newMessage.timestamp }
+            ? { 
+                ...chat, 
+                lastMessage: content, 
+                lastMessageTimestamp: newMessage.timestamp 
+              }
             : chat
         )
       );
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error al enviar mensaje');
+      console.error('❌ Error al enviar mensaje:', error);
     }
-  };
+  }, [activeChat]); // 👈 Añadir useCallback y dependencias
 
-  const takeChatControl = async (chatId: string) => {
+  // Reemplaza tu 'takeChatControl' (líneas 286-302)
+  const takeChatControl = useCallback(async (chatId: string) => {
     try {
-      // La API devuelve un objeto PARCIAL: { chatId, chatStatus, statusChangeTime }
       const partialUpdate = await chatService.changeChatStatus(chatId, 'human');
 
       setChats(prevChats =>
         prevChats.map(chat =>
-          chat.chatId === chatId
-            // FIX: Combinamos el chat existente (...) con la actualización parcial
-            ? { ...chat, ...partialUpdate } 
-            : chat
+          chat.chatId === chatId ? { ...chat, ...partialUpdate } : chat
         )
       );
       
       if (activeChat?.chatId === chatId) {
-        // Hacemos lo mismo para el chat activo
         setActiveChat(prevActive => prevActive ? { ...prevActive, ...partialUpdate } : null);
       }
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error al tomar control del chat');
     }
-  };
+  }, [activeChat]); // 👈 Añadir useCallback y dependencias
 
-  // ⬆️ *** FIN DE LA CORRECCIÓN *** ⬆️
+  // Agregar esta función ANTES del return del ChatProvider
+  const handleSetActiveChat = useCallback((chat: Chat) => {
+    // Establecer el chat activo
+    setActiveChat(chat);
+    
+    // Resetear el unreadCount del chat seleccionado
+    setChats(prevChats =>
+      prevChats.map(c =>
+        c.chatId === chat.chatId
+          ? { ...c, unreadCount: 0 }
+          : c
+      )
+    );
+  }, []);
 
   return (
     <ChatContext.Provider value={{
@@ -188,14 +328,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       messages,
       isLoading,
       error,
-      setActiveChat,
+      setActiveChat: handleSetActiveChat,  // ✅ CAMBIO: Usar función personalizada
       toggleChatMode,
       sendMessage,
       takeChatControl,
       refreshChats,
-      loadMoreChats, // Añadido para scroll infinito
-      hasMore, // Añadido para scroll infinito
-      isLoadingMore // Añadido para scroll infinito
+      loadMoreChats,
+      hasMore,
+      isLoadingMore
     }}>
       {children}
     </ChatContext.Provider>

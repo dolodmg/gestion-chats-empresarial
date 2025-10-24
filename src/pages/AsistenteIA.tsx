@@ -131,6 +131,7 @@ export default function AsistenteIA() {
       </div>
 
       {/* Stats Cards - Responsive  */}
+      {/* 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center">
@@ -188,6 +189,7 @@ export default function AsistenteIA() {
           </div>
         </div>
       </div>
+      */}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {/* Tabs - Responsive Grid */}
@@ -293,7 +295,7 @@ export default function AsistenteIA() {
                 </>
               )}
 
-              {/* Prompts Configurados */}
+              {/* Prompts Configurados - comentado por requerimiento
               <div className="border-t border-gray-200 pt-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
                   <h4 className="text-base font-medium text-gray-900">Prompts Configurados</h4>
@@ -330,10 +332,17 @@ export default function AsistenteIA() {
                   ))}
                 </div>
               </div>
+              */}
             </div>
           )}
+          
 
-          {activeTab === 'analytics' && (
+          {activeTab !== 'config' && (
+            <div className="text-gray-600 text-sm">Próximamente</div>
+          )}
+          
+
+          {false && (
             <div className="space-y-4 sm:space-y-6">
               <h3 className="text-base sm:text-lg font-medium text-gray-900">Análisis de Rendimiento</h3>
               
@@ -397,8 +406,9 @@ export default function AsistenteIA() {
               </div>
             </div>
           )}
+          
 
-          {activeTab === 'faqs' && (
+          {false && (
             <div className="space-y-4 sm:space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <h3 className="text-base sm:text-lg font-medium text-gray-900">Preguntas Frecuentes</h3>
@@ -436,7 +446,7 @@ export default function AsistenteIA() {
             </div>
           )}
 
-          {activeTab === 'improvements' && (
+          {false && (
             <div className="space-y-4 sm:space-y-6">
               <h3 className="text-base sm:text-lg font-medium text-gray-900">Recomendaciones de Mejora</h3>
               
