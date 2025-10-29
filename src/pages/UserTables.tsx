@@ -3,9 +3,23 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { customTableService, CustomTable, CreateTableData } from '../services/customTableService';
 import CreateTableModal, { TableFormData } from '@/components/tables/CreateTable';
 import DeleteTableDialog from '@/components/tables/DeleteTableDialog';
-import { Database, ChevronLeft, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Database, ChevronLeft, Loader2, Plus, Trash2, Type, Hash, Calendar, ToggleLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+
+const FIELD_TYPE_ICONS: Record<string, any> = {
+  string: Type,
+  number: Hash,
+  date: Calendar,
+  boolean: ToggleLeft,
+};
+
+const FIELD_TYPE_LABELS: Record<string, string> = {
+  string: 'Texto',
+  number: 'Número',
+  boolean: 'Verdadero/Falso',
+  date: 'Fecha'
+};
 
 export default function UserTables() {
   const { clientId, userName } = useParams<{ clientId: string; userName: string }>();
@@ -20,8 +34,7 @@ export default function UserTables() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [tableToDelete, setTableToDelete] = useState<CustomTable | null>(null);
-
-
+  
   useEffect(() => {
     if (!clientId) return;
     fetchTables();
@@ -37,6 +50,9 @@ export default function UserTables() {
       
       if (!activeTable || !userTables.some(t => t._id === activeTable._id)) {
         setActiveTable(userTables.length > 0 ? userTables[0] : null);
+      } else {
+        const updated = userTables.find(t => t._id === activeTable._id);
+        if (updated) setActiveTable(updated);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al cargar las tablas');
@@ -104,6 +120,10 @@ export default function UserTables() {
     }
   };
 
+  const getFieldIcon = (type: string) => {
+    const Icon = FIELD_TYPE_ICONS[type] || Type;
+    return Icon;
+  };
 
   return (
     <>
@@ -146,9 +166,10 @@ export default function UserTables() {
 
         {!isLoading && !error && tables.length > 0 && (
           <div className="flex flex-col lg:flex-row gap-6">
+            {/* Sidebar de tablas */}
             <div className="lg:w-1/4">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <h3 className="font-medium text-gray-900 mb-4">Tablas Disponibles</h3>
+                <h3 className="font-medium text-gray-900 mb-4">Tablas disponibles</h3>
                 <nav className="space-y-2">
                   {tables.map((table) => (
                     <div key={table._id} className="group flex items-center justify-between rounded-lg hover:bg-gray-100">
@@ -175,25 +196,77 @@ export default function UserTables() {
               </div>
             </div>
 
+            {/* Contenido principal */}
             <div className="lg:w-3/4">
               {activeTable ? (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  {/* Header de la tabla */}
                   <div className="p-6 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900">{activeTable.tableName}</h2>
-                    <p className="text-sm text-gray-600">{activeTable.description || 'Sin descripción'}</p>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h2 className="text-xl font-semibold text-gray-900 mb-1">{activeTable.tableName}</h2>
+                        <p className="text-sm text-gray-600">{activeTable.description || 'Sin descripción'}</p>
+                      </div>
+                      
+                    </div>
                   </div>
+
+                  {/* Campos de la tabla */}
                   <div className="p-6">
-                    <h3 className="font-medium text-gray-900 mb-2">Columnas</h3>
+                    <h3 className="font-medium text-gray-900 mb-4 flex items-center">
+                      <Database className="w-4 h-4 mr-2" />
+                      Campos de la tabla ({activeTable.fields.length})
+                    </h3>
+                    
                     {activeTable.fields.length > 0 ? (
-                      <ul className="list-disc list-inside text-gray-700">
-                        {activeTable.fields.map(field => ( <li key={field.name}> {field.label} (<code>{field.type}</code>) </li> ))}
-                      </ul>
-                    ) : ( <p className='text-sm text-gray-500 italic'>Esta tabla aún no tiene campos definidos.</p> )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {activeTable.fields.map(field => {
+                          const Icon = getFieldIcon(field.type);
+                          return (
+                            <div 
+                              key={field.name} 
+                              className="border border-gray-200 rounded-lg p-4 hover:border-sky-300 hover:shadow-sm transition-all"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start space-x-3 flex-1">
+                                  <div className="mt-1 p-2 bg-sky-50 rounded-lg">
+                                    <Icon className="w-4 h-4 text-sky-700" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-medium text-gray-900 truncate">{field.label}</h4>
+                                      {field.required && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                          Requerido
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-1">
+                                      <code className="bg-gray-100 px-1.5 py-0.5 rounded">{field.name}</code>
+                                    </p>
+                                    <p className="text-xs text-gray-600">
+                                      {FIELD_TYPE_LABELS[field.type] || field.type}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : ( 
+                      <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                        <Database className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className='text-sm text-gray-500 mb-3'>Esta tabla aún no tiene campos definidos.</p>
+                        
+                      </div> 
+                    )}
                   </div>
                 </div>
               ) : (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                  <h3 className="text-lg font-medium text-gray-900">Selecciona una tabla</h3>
+                  <Database className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Selecciona una tabla</h3>
                   <p className="text-gray-600">Elige una tabla de la lista para ver sus detalles.</p>
                 </div>
               )}
