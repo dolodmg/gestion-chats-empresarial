@@ -63,7 +63,7 @@ function AppRoutes() {
       <Route
         path="/inscripciones"
         element={
-          <ProtectedRoute requiredClientId="577642088768581">
+          <ProtectedRoute requiredClientId="751524394719240">
             <Inscripciones />
           </ProtectedRoute>
         }

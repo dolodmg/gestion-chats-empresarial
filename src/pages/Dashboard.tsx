@@ -386,7 +386,7 @@ export default function Dashboard() {
                     ) : (
                       <>
                         <User className="w-4 h-4" />
-                        <span>Control Manual</span>
+                        <span>Devolver al bot</span>
                       </>
                     )}
                   </button>
