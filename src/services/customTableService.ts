@@ -70,7 +70,6 @@ export const customTableService = {
   },
 
   async createRecord(tableId: string, data: Record<string, any>): Promise<TableRecord> {
-    // ✅ CORREGIDO: Cambiar /records por /data para coincidir con el backend
     const response = await api.post(`/custom-tables/${tableId}/data`, data);
     return response.data.record;
   },
@@ -80,13 +79,11 @@ export const customTableService = {
     recordId: string,
     data: Record<string, any>
   ): Promise<TableRecord> {
-    // ✅ CORREGIDO: Cambiar /records por /data para coincidir con el backend
     const response = await api.put(`/custom-tables/${tableId}/data/${recordId}`, data);
     return response.data.record;
   },
 
   async deleteRecord(tableId: string, recordId: string): Promise<void> {
-    // ✅ CORREGIDO: Cambiar /records por /data para coincidir con el backend
     await api.delete(`/custom-tables/${tableId}/data/${recordId}`);
   }
 };
