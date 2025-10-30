@@ -69,6 +69,18 @@ export const customTableService = {
     return response.data;
   },
 
+  async updateTableData(
+    tableId: string,
+    data: {
+      tableName?: string;
+      description?: string;
+      fields?: TableField[];
+    }
+  ): Promise<CustomTable> {
+    const response = await api.put(`/custom-tables/${tableId}`, data);
+    return response.data.table;
+  },
+
   async createRecord(tableId: string, data: Record<string, any>): Promise<TableRecord> {
     const response = await api.post(`/custom-tables/${tableId}/data`, data);
     return response.data.record;

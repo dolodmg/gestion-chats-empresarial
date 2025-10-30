@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { customTableService, CustomTable, CreateTableData } from '../services/customTableService';
+import { customTableService, CustomTable, CreateTableData, TableField } from '../services/customTableService';
 import CreateTableModal, { TableFormData } from '@/components/tables/CreateTable';
 import DeleteTableDialog from '@/components/tables/DeleteTableDialog';
+import AddFieldModal from '@/components/tables/AddFieldModal';
 import { Database, ChevronLeft, Loader2, Plus, Trash2, Type, Hash, Calendar, ToggleLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -34,6 +35,7 @@ export default function UserTables() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [tableToDelete, setTableToDelete] = useState<CustomTable | null>(null);
+  const [isAddFieldModalOpen, setIsAddFieldModalOpen] = useState(false);
   
   useEffect(() => {
     if (!clientId) return;
@@ -66,7 +68,6 @@ export default function UserTables() {
       toast.error("Error", { description: "Falta el ID del cliente para crear la tabla." });
       return;
     }
-
     if (!formData.fields || formData.fields.length === 0) {
       toast.error("Error", { description: "Debe agregar al menos un campo a la tabla." });
       return;
@@ -81,7 +82,6 @@ export default function UserTables() {
         clientId: clientId,
         fields: formData.fields
       };
-
       const newTable = await customTableService.createTable(dataToSave);
       toast.success("Tabla Creada", { description: `La tabla "${newTable.tableName}" ha sido creada.` });
       setIsCreateModalOpen(false);
@@ -120,6 +120,34 @@ export default function UserTables() {
     }
   };
 
+  const handleAddField = async (newFields: TableField[]) => {
+    if (!activeTable) return;
+    
+    setIsSaving(true);
+    try {
+      // Combinar campos existentes con los nuevos
+      const updatedFields = [...activeTable.fields, ...newFields];
+      
+      // Llamar al servicio para actualizar la tabla
+      await customTableService.updateTableData(activeTable._id, {
+        fields: updatedFields
+      });
+      
+      toast.success("Campos agregados", { 
+        description: `Se ${newFields.length === 1 ? 'agregó 1 campo nuevo' : `agregaron ${newFields.length} campos nuevos`} correctamente.` 
+      });
+      
+      setIsAddFieldModalOpen(false);
+      await fetchTables();
+    } catch (err: any) {
+      toast.error("Error al agregar campos", {
+        description: err.response?.data?.error || err.response?.data?.message || "Ocurrió un error inesperado.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const getFieldIcon = (type: string) => {
     const Icon = FIELD_TYPE_ICONS[type] || Type;
     return Icon;
@@ -154,6 +182,7 @@ export default function UserTables() {
         </div>
 
         {isLoading && ( <div className="flex justify-center items-center p-12"><Loader2 className="w-8 h-8 text-blue-600 animate-spin" /></div> )}
+
         {error && ( <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">{error}</div> )}
 
         {!isLoading && !error && tables.length === 0 && (
@@ -207,7 +236,15 @@ export default function UserTables() {
                         <h2 className="text-xl font-semibold text-gray-900 mb-1">{activeTable.tableName}</h2>
                         <p className="text-sm text-gray-600">{activeTable.description || 'Sin descripción'}</p>
                       </div>
-                      
+                      <Button
+                        onClick={() => setIsAddFieldModalOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="text-sky-700 border-sky-700 hover:bg-sky-50"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Agregar campo
+                      </Button>             
                     </div>
                   </div>
 
@@ -258,7 +295,14 @@ export default function UserTables() {
                       <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                         <Database className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                         <p className='text-sm text-gray-500 mb-3'>Esta tabla aún no tiene campos definidos.</p>
-                        
+                        <Button
+                          onClick={() => setIsAddFieldModalOpen(true)}
+                          size="sm"
+                          className="bg-sky-700 hover:bg-sky-800"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Agregar primer campo
+                        </Button>
                       </div> 
                     )}
                   </div>
@@ -288,6 +332,16 @@ export default function UserTables() {
         onConfirm={handleConfirmDelete}
         tableName={tableToDelete?.tableName || ''}
         isDeleting={isDeleting}
+      />
+
+      <AddFieldModal
+        open={isAddFieldModalOpen}
+        onOpenChange={setIsAddFieldModalOpen}
+        onSave={handleAddField}
+        isSaving={isSaving}
+        tableId={activeTable?._id || ''}
+        tableName={activeTable?.tableName || ''}
+        existingFields={activeTable?.fields || []}
       />
     </>
   );

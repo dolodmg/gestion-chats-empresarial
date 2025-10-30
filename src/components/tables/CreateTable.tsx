@@ -278,7 +278,7 @@ export default function CreateTableModal({ open, onOpenChange, onSave, isSaving 
                       </div>
 
                       {/* Requerido */}
-                      <div className="col-span-2 flex items-end h-full">
+                      <div className="col-span-2 flex items-center h-full pt-5">
                         <label className="flex items-center space-x-1 cursor-pointer">
                           <input
                             type="checkbox"
@@ -290,7 +290,6 @@ export default function CreateTableModal({ open, onOpenChange, onSave, isSaving 
                           <span className="text-xs">Requerido</span>
                         </label>
                       </div>
-
                       {/* Eliminar */}
                       <div className="col-span-1 flex items-end justify-end h-full">
                         <Button
