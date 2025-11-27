@@ -1,9 +1,15 @@
-import React from 'react'; 
+// src/pages/Dashboard.tsx
+import React, { useState } from 'react'; 
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { format, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Timer from '../components/Timer';
+import { useTagService } from '../hooks/useTagService';
+import { TagBadge } from '../components/tags/TagBadge';
+import { TagSelector } from '../components/tags/TagSelector';
+import { TagManagerModal } from '../components/tags/TagManagerModal';
+import { toast } from 'sonner';
 import {
   Bot,
   User,
@@ -12,8 +18,10 @@ import {
   MoreHorizontal,
   AlertTriangle,
   RefreshCw,
-  ArrowLeft
+  ArrowLeft,
+  Settings
 } from 'lucide-react';
+import { TagFilter } from '@/components/tags/TagFilter';
 
 export default function Dashboard() {
   const { 
@@ -32,12 +40,20 @@ export default function Dashboard() {
     isLoadingMore
   } = useChat();
   const { user } = useAuth();
+  const tagService = useTagService();
+  
   const [newMessage, setNewMessage] = React.useState('');
   const [isMobile, setIsMobile] = React.useState(false);
   const [showMobileChatList, setShowMobileChatList] = React.useState(false);
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+  const [selectedTagFilter, setSelectedTagFilter] = React.useState<string | null>(null); 
 
   const listRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    tagService.loadUserTags();
+  }, []);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -62,6 +78,31 @@ export default function Dashboard() {
       setShowMobileChatList(true);
     }
   }, [activeChat, isMobile]);
+
+  // Handlers para tags
+  const handleAddTag = async (chatId: string, tagName: string) => {
+    try {
+      await tagService.addTagToChat(chatId, tagName);
+      
+      toast.success('Tag agregada', { description: `Tag "${tagName}" agregada al chat` });
+      
+      refreshChats();
+    } catch (error: any) {
+      toast.error('Error', { description: error.message });
+    }
+  };
+
+  const handleRemoveTag = async (chatId: string, tagName: string) => {
+    try {
+      await tagService.removeTagFromChat(chatId, tagName);
+      
+      toast.success('Tag removida', { description: `Tag "${tagName}" removida del chat` });
+      
+      refreshChats();
+    } catch (error: any) {
+      toast.error('Error', { description: error.message });
+    }
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +159,6 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ Mejorar agrupación de mensajes con ordenamiento
   const groupMessagesByDate = (messages: any[]) => {
     const groups: { [key: string]: any[] } = {};
     
@@ -137,7 +177,6 @@ export default function Dashboard() {
       }
     });
     
-    // ✅ Ordenar mensajes dentro de cada grupo por timestamp
     Object.keys(groups).forEach(dateKey => {
       groups[dateKey].sort((a, b) => 
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
@@ -169,7 +208,6 @@ export default function Dashboard() {
     }
   };
 
-  // Sort chats by last message timestamp (most recent first)
   const sortedChats = React.useMemo(() => {
     return [...chats].sort((a, b) => {
       if (!a.lastMessageTimestamp && !b.lastMessageTimestamp) return 0;
@@ -185,6 +223,36 @@ export default function Dashboard() {
       return timeB - timeA;
     });
   }, [chats]);
+
+  const availableTags = React.useMemo(() => {
+    const tagMap = new Map<string, string>();
+    
+    sortedChats.forEach(chat => {
+      if (chat.tags) {
+        chat.tags.forEach(tagName => {
+          const tag = tagService.getTag(tagName);
+          if (tag && !tagMap.has(tagName)) {
+            tagMap.set(tagName, tag.color);
+          }
+        });
+      }
+    });
+    
+    return Array.from(tagMap.entries()).map(([name, color]) => ({
+      name,
+      color
+    }));
+  }, [sortedChats, tagService.tags]);
+
+  const filteredChats = React.useMemo(() => {
+    if (!selectedTagFilter) {
+      return sortedChats;
+    }
+    
+    return sortedChats.filter(chat => 
+      chat.tags && chat.tags.includes(selectedTagFilter)
+    );
+  }, [sortedChats, selectedTagFilter]);
 
   const handleScroll = () => {
     const target = listRef.current;
@@ -208,18 +276,35 @@ export default function Dashboard() {
       >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold text-gray-900">Conversaciones</h2>
-            <button
-              onClick={refreshChats}
-              disabled={isLoading}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
-              title="Actualizar chats"
-            >
-              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsTagManagerOpen(true)}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                title="Configurar tags"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button
+                onClick={refreshChats}
+                disabled={isLoading}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                title="Actualizar chats"
+              >
+                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Tag Filter */}
+        <TagFilter
+          availableTags={availableTags}
+          selectedTag={selectedTagFilter}
+          onTagSelect={(tagName) => setSelectedTagFilter(tagName)}
+          chatCount={selectedTagFilter ? filteredChats.length : undefined} 
+        />
 
         {/* Chat List con scroll infinito */}
         <div 
@@ -238,7 +323,7 @@ export default function Dashboard() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : (
-            sortedChats.map((chat) => (
+            filteredChats.map((chat) => (
               <button
                 key={chat.chatId}
                 onClick={() => handleChatSelect(chat)}
@@ -275,6 +360,24 @@ export default function Dashboard() {
                         </span>
                       )}
                     </div>
+                    
+                    {/* Tags del chat */}
+                    {chat.tags && chat.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {chat.tags.map(tagName => {
+                          const tag = tagService.getTag(tagName);
+                          return (
+                            <TagBadge
+                              key={tagName}
+                              name={tagName}
+                              color={tag?.color || '#6B7280'}
+                              size="sm"
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                    
                     <div className="flex items-center mt-2">
                       {chat.chatStatus === 'bot' ? (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
@@ -294,21 +397,18 @@ export default function Dashboard() {
             ))
           )}
 
-          {/* Indicador de carga de más chats */}
           {isLoadingMore && (
             <div className="flex items-center justify-center p-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
           )}
 
-          {/* Mensaje de fin de lista */}
           {!isLoadingMore && !hasMore && chats.length > 0 && (
             <div className="text-center py-6">
               <p className="text-sm text-gray-500">Fin de las conversaciones</p>
             </div>
           )}
           
-          {/* Mensaje de "No hay chats" */}
           {!isLoading && chats.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -323,10 +423,10 @@ export default function Dashboard() {
 
       {/* Chat Area */}
       <div
-      className={`${
-        isMobile && showMobileChatList ? 'hidden' : 'flex'
-      } flex-1 flex flex-col min-h-0 
-      absolute inset-0 lg:static lg:inset-auto`}
+        className={`${
+          isMobile && showMobileChatList ? 'hidden' : 'flex'
+        } flex-1 flex flex-col min-h-0 
+        absolute inset-0 lg:static lg:inset-auto`}
       >
         {activeChat ? (
           <>
@@ -348,7 +448,7 @@ export default function Dashboard() {
                       {activeChat.contactName?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'U'}
                     </span>
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">
                       {activeChat.contactName || activeChat.phoneNumber}
                     </h3>
@@ -357,6 +457,15 @@ export default function Dashboard() {
                       <span className="text-sm text-gray-600">{activeChat.phoneNumber}</span>
                     </div>
                   </div>
+                  
+                  {/* Tag Selector en el header */}
+                  <TagSelector
+                    availableTags={tagService.tags}
+                    selectedTags={activeChat.tags || []}
+                    onTagAdd={(tagName) => handleAddTag(activeChat.chatId, tagName)}
+                    onTagRemove={(tagName) => handleRemoveTag(activeChat.chatId, tagName)}
+                    onCreateTag={() => setIsTagManagerOpen(true)}
+                  />
                 </div>
                 
                 <div className="flex flex-col gap-3 w-full lg:w-auto">
@@ -410,14 +519,12 @@ export default function Dashboard() {
             >
               {Object.keys(messageGroups).sort().map(dateKey => (
                 <div key={dateKey}>
-                  {/* Date Separator */}
                   <div className="flex items-center justify-center my-4">
                     <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
                       {formatMessageDate(messageGroups[dateKey][0]?.timestamp)}
                     </div>
                   </div>
                   
-                  {/* Messages for this date - ya ordenados por timestamp */}
                   {messageGroups[dateKey].map((message) => (
                     <div
                       key={message.id}
@@ -505,6 +612,27 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Tag Manager Modal */}
+      <TagManagerModal
+        isOpen={isTagManagerOpen}
+        onClose={() => setIsTagManagerOpen(false)}
+        tags={tagService.tags}
+        onCreateTag={async (name, color) => {
+          await tagService.createTag(name, color);
+          toast.success('Tag creada', { description: `Tag "${name}" creada exitosamente` });
+        }}
+        onDeleteTag={async (tagName) => {
+          await tagService.deleteTag(tagName);
+          toast.success('Tag eliminada', { description: `Tag "${tagName}" eliminada` });
+          refreshChats(); // Actualizar chats para reflejar cambios
+        }}
+        onUpdateTagColor={async (tagName, color) => {
+          await tagService.updateTagColor(tagName, color);
+          toast.success('Color actualizado', { description: `Color de "${tagName}" actualizado` });
+          refreshChats(); // Actualizar chats para ver nuevo color
+        }}
+      />
     </div>
   );
 }

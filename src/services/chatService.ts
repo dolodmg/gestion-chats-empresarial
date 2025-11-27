@@ -11,6 +11,7 @@ export interface Chat {
   unreadCount: number;
   chatStatus: 'bot' | 'human';
   statusChangeTime?: string;
+  tags: string[];
 }
 
 export interface Message {
