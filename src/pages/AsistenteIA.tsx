@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Bot, MessageCircle, TrendingUp, Settings, Zap, Brain, BarChart3, PlusCircle, Edit, Trash2, History, Save, X } from 'lucide-react';
+import { Bot, MessageCircle, TrendingUp, Settings, Zap, Brain, BarChart3, PlusCircle, Edit, Trash2, History, Save, X, RefreshCw, Pin, Archive, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { assistantService, AssistantPromptRecord, GetPromptResponse } from '../services/assistantService';
+import { faqService, FAQ, FAQStats } from '../services/faqService';
 
 export default function AsistenteIA() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('config');
+  
   // Estado del prompt actual
   const [isLoading, setIsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -17,11 +19,22 @@ export default function AsistenteIA() {
   const [workflowId, setWorkflowId] = useState<string | undefined>(undefined);
   const [nodeId, setNodeId] = useState<string | undefined>(undefined);
   const [lastUpdated, setLastUpdated] = useState<string | undefined>(undefined);
+  
   // Historial
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [history, setHistory] = useState<AssistantPromptRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<{ page: number; limit: number; total: number; totalPages: number } | null>(null);
+
+  // FAQs
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [faqsLoading, setFaqsLoading] = useState(false);
+  const [analyzingFAQs, setAnalyzingFAQs] = useState(false);
+  const [faqStats, setFaqStats] = useState<FAQStats | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [editingFAQ, setEditingFAQ] = useState<string | null>(null);
+  const [editCustomResponse, setEditCustomResponse] = useState('');
 
   const currentClientId = user?.role === 'admin' ? undefined : user?.clientId;
 
@@ -89,110 +102,96 @@ export default function AsistenteIA() {
     }
   };
 
+  // Funciones para FAQs
+  const loadFAQs = async () => {
+    setFaqsLoading(true);
+    setError(null);
+    try {
+      const response = await faqService.getFAQs(currentClientId, {
+        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        status: 'active',
+        limit: 50
+      });
+      setFaqs(response.faqs);
+      setCategories(response.categories);
+      
+      // Cargar stats
+      const statsResponse = await faqService.getStats(currentClientId);
+      setFaqStats(statsResponse.stats);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Error al cargar FAQs');
+    } finally {
+      setFaqsLoading(false);
+    }
+  };
+
+  const handleAnalyzeFAQs = async () => {
+    setAnalyzingFAQs(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const response = await faqService.analyzeFAQs(currentClientId);
+      setStatus(`Análisis completado: ${response.stats.faqsGenerated} preguntas generadas de ${response.stats.messagesAnalyzed} mensajes`);
+      await loadFAQs();
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Error al analizar FAQs');
+    } finally {
+      setAnalyzingFAQs(false);
+    }
+  };
+
+  const handleUpdateFAQ = async (id: string, updates: any) => {
+    try {
+      await faqService.updateFAQ(id, updates);
+      setStatus('FAQ actualizada correctamente');
+      await loadFAQs();
+      setEditingFAQ(null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Error al actualizar FAQ');
+    }
+  };
+
+  const handleDeleteFAQ = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar esta FAQ?')) return;
+    
+    try {
+      await faqService.deleteFAQ(id);
+      setStatus('FAQ eliminada correctamente');
+      await loadFAQs();
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Error al eliminar FAQ');
+    }
+  };
+
   useEffect(() => {
     loadPrompt();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const [prompts, setPrompts] = useState([
-    {
-      id: '1',
-      name: 'Saludo Inicial',
-      content: 'Hola! Soy el asistente virtual de [EMPRESA]. ¿En qué puedo ayudarte hoy?',
-      active: true
-    },
-    {
-      id: '2',
-      name: 'Información de Servicios',
-      content: 'Ofrecemos servicios de consultoría, desarrollo y soporte técnico. ¿Sobre cuál te gustaría saber más?',
-      active: true
+  useEffect(() => {
+    if (activeTab === 'faqs') {
+      loadFAQs();
     }
-  ]);
-
-  const [faqs, setFaqs] = useState([
-    { id: '1', question: '¿Cuáles son sus horarios de atención?', answer: 'Atendemos de lunes a viernes de 9:00 a 18:00 hrs.', count: 45 },
-    { id: '2', question: '¿Ofrecen soporte técnico?', answer: 'Sí, ofrecemos soporte técnico 24/7 para nuestros clientes.', count: 32 },
-    { id: '3', question: '¿Cómo puedo solicitar una cotización?', answer: 'Puedes solicitar una cotización através de nuestro formulario web.', count: 28 }
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedCategory]);
 
   const tabs = [
     { id: 'config', label: 'Configuración', icon: Settings },
-    { id: 'analytics', label: 'Análisis', icon: BarChart3 },
     { id: 'faqs', label: 'FAQs', icon: MessageCircle },
+    { id: 'analytics', label: 'Análisis', icon: BarChart3 },
     { id: 'improvements', label: 'Mejoras', icon: TrendingUp }
   ];
 
   return (
     <div className="p-4 sm:p-6">
-      {/* Header - Responsive */}
+      {/* Header */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">Asistente IA</h1>
         <p className="text-sm sm:text-base text-gray-600">Configura y optimiza tu asistente virtual de WhatsApp</p>
       </div>
 
-      {/* Stats Cards - Responsive  */}
-      {/* 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center">
-            <div className="flex-shrink-0 mb-2 sm:mb-0">
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-              </div>
-            </div>
-            <div className="sm:ml-4">
-              <p className="text-xs sm:text-sm font-medium text-gray-500">Consultas Bot</p>
-              <p className="text-xl sm:text-2xl font-semibold text-gray-900">1,234</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center">
-            <div className="flex-shrink-0 mb-2 sm:mb-0">
-              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-              </div>
-            </div>
-            <div className="sm:ml-4">
-              <p className="text-xs sm:text-sm font-medium text-gray-500">Precisión</p>
-              <p className="text-xl sm:text-2xl font-semibold text-gray-900">89%</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center">
-            <div className="flex-shrink-0 mb-2 sm:mb-0">
-              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-              </div>
-            </div>
-            <div className="sm:ml-4">
-              <p className="text-xs sm:text-sm font-medium text-gray-500">Aprendizaje</p>
-              <p className="text-xl sm:text-2xl font-semibold text-gray-900">24/7</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center">
-            <div className="flex-shrink-0 mb-2 sm:mb-0">
-              <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-              </div>
-            </div>
-            <div className="sm:ml-4">
-              <p className="text-xs sm:text-sm font-medium text-gray-500">Chats Hoy</p>
-              <p className="text-xl sm:text-2xl font-semibold text-gray-900">156</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      */}
-
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {/* Tabs - Responsive Grid */}
+        {/* Tabs */}
         <div className="border-b border-gray-200 overflow-x-auto">
           <nav className="grid grid-cols-2 sm:flex sm:space-x-8 px-4 sm:px-6 min-w-max sm:min-w-0">
             {tabs.map((tab) => {
@@ -217,6 +216,7 @@ export default function AsistenteIA() {
 
         {/* Tab Content */}
         <div className="p-4 sm:p-6">
+          {/* Configuración Tab */}
           {activeTab === 'config' && (
             <div className="space-y-4 sm:space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
@@ -294,36 +294,190 @@ export default function AsistenteIA() {
                   </div>
                 </>
               )}
+            </div>
+          )}
 
-              {/* Prompts Configurados - comentado por requerimiento
-              <div className="border-t border-gray-200 pt-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-                  <h4 className="text-base font-medium text-gray-900">Prompts Configurados</h4>
-                  <button className="w-full sm:w-auto px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
-                    <PlusCircle className="w-4 h-4" />
-                    Nuevo Prompt
-                  </button>
+          {/* FAQs Tab */}
+          {activeTab === 'faqs' && (
+            <div className="space-y-4 sm:space-y-6">
+              {/* Header con stats */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-base sm:text-lg font-medium text-gray-900">Preguntas Frecuentes</h3>
+                  {faqStats && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      {faqStats.totalFAQs} preguntas identificadas · {faqStats.totalQuestions} consultas totales
+                    </p>
+                  )}
                 </div>
+                <button
+                  onClick={handleAnalyzeFAQs}
+                  disabled={analyzingFAQs}
+                  className="w-full sm:w-auto px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${analyzingFAQs ? 'animate-spin' : ''}`} />
+                  {analyzingFAQs ? 'Analizando...' : 'Analizar Preguntas'}
+                </button>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 text-red-700 border border-red-200 p-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+              {status && (
+                <div className="bg-green-50 text-green-700 border border-green-200 p-3 rounded-lg text-sm">
+                  {status}
+                </div>
+              )}
+
+              {/* Filtros */}
+              {categories.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  <button
+                    onClick={() => setSelectedCategory('all')}
+                    className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap ${
+                      selectedCategory === 'all'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap ${
+                        selectedCategory === cat
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Lista de FAQs */}
+              {faqsLoading ? (
+                <div className="text-center py-8 text-gray-500">Cargando FAQs...</div>
+              ) : faqs.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600">No se encontraron preguntas frecuentes</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Haz clic en "Analizar Preguntas" para generar las preguntas automáticamente
+                  </p>
+                </div>
+              ) : (
                 <div className="space-y-3">
-                  {prompts.map((prompt) => (
-                    <div key={prompt.id} className="border border-gray-200 rounded-lg p-4">
+                  {faqs.map((faq) => (
+                    <div key={faq._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h5 className="font-medium text-gray-900 text-sm sm:text-base">{prompt.name}</h5>
-                            {prompt.active && (
-                              <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
-                                Activo
-                              </span>
-                            )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2 mb-2">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-gray-900 text-sm sm:text-base">
+                                {faq.canonicalQuestion}
+                              </h4>
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                  {faq.category}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {faq.totalCount} {faq.totalCount === 1 ? 'consulta' : 'consultas'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-gray-600 text-sm">{prompt.content}</p>
+
+                          {/* Respuesta común del bot */}
+                          {faq.commonResponse && (
+                            <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700">
+                              <p className="text-xs text-gray-500 mb-1">Respuesta del bot:</p>
+                              <p>{faq.commonResponse}</p>
+                            </div>
+                          )}
+
+                          {/* Respuesta personalizada */}
+                          {editingFAQ === faq._id ? (
+                            <div className="mt-3">
+                              <label className="block text-xs text-gray-600 mb-1">
+                                Respuesta personalizada:
+                              </label>
+                              <textarea
+                                value={editCustomResponse}
+                                onChange={(e) => setEditCustomResponse(e.target.value)}
+                                rows={3}
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                                placeholder="Escribe una respuesta personalizada..."
+                              />
+                              <div className="flex gap-2 mt-2">
+                                <button
+                                  onClick={() => handleUpdateFAQ(faq._id, { customResponse: editCustomResponse })}
+                                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                >
+                                  Guardar
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingFAQ(null);
+                                    setEditCustomResponse('');
+                                  }}
+                                  className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : faq.customResponse ? (
+                            <div className="mt-2 p-2 bg-green-50 rounded text-sm text-gray-700">
+                              <p className="text-xs text-green-600 mb-1 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" /> Respuesta personalizada:
+                              </p>
+                              <p>{faq.customResponse}</p>
+                            </div>
+                          ) : null}
+
+                          {/* Variaciones */}
+                          <details className="mt-2">
+                            <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-900">
+                              Ver {faq.variations.length} variaciones
+                            </summary>
+                            <ul className="mt-2 space-y-1 ml-4">
+                              {faq.variations.slice(0, 5).map((variation, idx) => (
+                                <li key={idx} className="text-xs text-gray-600">
+                                  • {variation.question} ({variation.count}x)
+                                </li>
+                              ))}
+                              {faq.variations.length > 5 && (
+                                <li className="text-xs text-gray-500 italic">
+                                  ... y {faq.variations.length - 5} más
+                                </li>
+                              )}
+                            </ul>
+                          </details>
                         </div>
-                        <div className="flex items-center gap-2 sm:ml-4">
-                          <button className="flex-1 sm:flex-none text-blue-600 hover:text-blue-900 p-2 rounded hover:bg-blue-50">
+
+                        {/* Acciones */}
+                        <div className="flex sm:flex-col items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingFAQ(faq._id);
+                              setEditCustomResponse(faq.customResponse || '');
+                            }}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                            title="Editar respuesta"
+                          >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button className="flex-1 sm:flex-none text-red-600 hover:text-red-900 p-2 rounded hover:bg-red-50">
+                          <button
+                            onClick={() => handleDeleteFAQ(faq._id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded"
+                            title="Eliminar"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -331,181 +485,18 @@ export default function AsistenteIA() {
                     </div>
                   ))}
                 </div>
-              </div>
-              */}
+              )}
             </div>
           )}
-          
 
-          {activeTab !== 'config' && (
+          {/* Otros tabs (Analytics, Improvements) */}
+          {(activeTab === 'analytics' || activeTab === 'improvements') && (
             <div className="text-gray-600 text-sm">Próximamente</div>
-          )}
-          
-
-          {false && (
-            <div className="space-y-4 sm:space-y-6">
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">Análisis de Rendimiento</h3>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                {/* Métricas */}
-                <div className="border border-gray-200 rounded-lg p-4 sm:p-6">
-                  <h4 className="font-medium text-gray-900 mb-4 text-sm sm:text-base">Métricas Clave</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Tasa de Respuesta</span>
-                        <span className="font-medium">92%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-blue-600 h-2 rounded-full" style={{ width: '92%' }}></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Satisfacción</span>
-                        <span className="font-medium">87%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-green-600 h-2 rounded-full" style={{ width: '87%' }}></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Tiempo de Respuesta</span>
-                        <span className="font-medium">2.3s</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: '75%' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Categorías */}
-                <div className="border border-gray-200 rounded-lg p-4 sm:p-6">
-                  <h4 className="font-medium text-gray-900 mb-4 text-sm sm:text-base">Consultas por Categoría</h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Soporte Técnico</span>
-                      <span className="font-medium text-sm">342</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Ventas</span>
-                      <span className="font-medium text-sm">287</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Información</span>
-                      <span className="font-medium text-sm">198</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Otros</span>
-                      <span className="font-medium text-sm">156</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          
-
-          {false && (
-            <div className="space-y-4 sm:space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <h3 className="text-base sm:text-lg font-medium text-gray-900">Preguntas Frecuentes</h3>
-                <button className="w-full sm:w-auto px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
-                  <PlusCircle className="w-4 h-4" />
-                  Agregar FAQ
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {faqs.map((faq) => (
-                  <div key={faq.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
-                          <h4 className="font-medium text-gray-900 text-sm sm:text-base">{faq.question}</h4>
-                          <span className="text-xs sm:text-sm text-gray-500 self-start sm:self-auto">
-                            {faq.count} consultas
-                          </span>
-                        </div>
-                        <p className="text-gray-600 text-sm">{faq.answer}</p>
-                      </div>
-                      <div className="flex items-center gap-2 sm:ml-4">
-                        <button className="flex-1 sm:flex-none text-blue-600 hover:text-blue-900 p-2 rounded hover:bg-blue-50">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="flex-1 sm:flex-none text-red-600 hover:text-red-900 p-2 rounded hover:bg-red-50">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {false && (
-            <div className="space-y-4 sm:space-y-6">
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">Recomendaciones de Mejora</h3>
-              
-              <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-blue-900 text-sm sm:text-base">
-                        Optimizar Respuestas de Soporte
-                      </h4>
-                      <p className="text-blue-800 text-sm mt-1">
-                        Las consultas de soporte técnico tienen una tasa de escalación del 35%. 
-                        Considera agregar más respuestas automáticas específicas.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <MessageCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-yellow-900 text-sm sm:text-base">Actualizar FAQs</h4>
-                      <p className="text-yellow-800 text-sm mt-1">
-                        Se detectaron 12 preguntas nuevas que no están en tu base de conocimiento. 
-                        Añadirlas podría reducir las derivaciones manuales.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <Bot className="w-5 h-5 text-green-600 mt-0.5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-green-900 text-sm sm:text-base">
-                        Mejora en Horarios Nocturnos
-                      </h4>
-                      <p className="text-green-800 text-sm mt-1">
-                        El bot está manejando el 95% de las consultas fuera del horario laboral. 
-                        ¡Excelente desempeño!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </div>
 
-      {/* Modal Historial - Responsive */}
+      {/* Modal Historial */}
       {showHistoryModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
