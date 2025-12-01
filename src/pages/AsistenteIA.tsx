@@ -377,9 +377,9 @@ export default function AsistenteIA() {
                     <div key={faq._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 mb-2">
+                          <div className="flex items-start">
                             <div className="flex-1">
-                              <h4 className="font-medium text-gray-900 text-sm sm:text-base">
+                              <h4 className="font-medium text-gray-900 text-sm sm:text-base mb-2">
                                 {faq.canonicalQuestion}
                               </h4>
                               <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -440,25 +440,6 @@ export default function AsistenteIA() {
                               <p>{faq.customResponse}</p>
                             </div>
                           ) : null}
-
-                          {/* Variaciones */}
-                          <details className="mt-2">
-                            <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-900">
-                              Ver {faq.variations.length} variaciones
-                            </summary>
-                            <ul className="mt-2 space-y-1 ml-4">
-                              {faq.variations.slice(0, 5).map((variation, idx) => (
-                                <li key={idx} className="text-xs text-gray-600">
-                                  • {variation.question} ({variation.count}x)
-                                </li>
-                              ))}
-                              {faq.variations.length > 5 && (
-                                <li className="text-xs text-gray-500 italic">
-                                  ... y {faq.variations.length - 5} más
-                                </li>
-                              )}
-                            </ul>
-                          </details>
                         </div>
 
                         {/* Acciones */}
