@@ -19,6 +19,7 @@ interface ChatContextType {
   loadMoreChats: () => void;
   hasMore: boolean;
   isLoadingMore: boolean;
+  navigateToChatByPhone: (phoneNumber: string) => Promise<boolean>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -29,9 +30,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const token = localStorage.getItem('auth_token');
 
-  console.log('🔍 DEBUG ChatContext:', { 
-    user: user ? 'existe' : 'null', 
-    token: token ? 'existe' : 'null' 
+  console.log('🔍 DEBUG ChatContext:', {
+    user: user ? 'existe' : 'null',
+    token: token ? 'existe' : 'null'
   });
 
   const [chats, setChats] = useState<Chat[]>([]);
@@ -46,14 +47,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const refreshChats = useCallback(async () => {
     if (!user) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const clientId = user.role === 'admin' ? undefined : user.clientId;
       const chatList = await chatService.getChats(clientId, 0, CHAT_PAGE_LIMIT);
-      
+
       setChats(chatList);
       setSkip(chatList.length);
       setHasMore(chatList.length === CHAT_PAGE_LIMIT);
@@ -68,7 +69,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     try {
       const chatWithMessages = await chatService.getChatWithMessages(chat.chatId);
       // ✅ Ordenar mensajes por timestamp al cargarlos
-      const sortedMessages = chatWithMessages.messages.sort((a, b) => 
+      const sortedMessages = chatWithMessages.messages.sort((a, b) =>
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
       setMessages(sortedMessages);
@@ -77,7 +78,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  
+
 
   // 🆕 Envolver los handlers de SSE en useCallback
   // Reemplaza tu 'handleNewMessage' (líneas 74-126)
@@ -95,21 +96,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // Actualizar lista de chats (último mensaje)
     setChats(prevChats => {
       const existingChat = prevChats.find(c => c.chatId === chatId);
-      
+
       if (existingChat) {
         return [
-          { 
-            ...existingChat, 
-            lastMessage: content, 
+          {
+            ...existingChat,
+            lastMessage: content,
             lastMessageTimestamp: timestamp,
-            unreadCount: (activeChat?.chatId === chatId || sender !== 'user') 
-              ? existingChat.unreadCount 
+            unreadCount: (activeChat?.chatId === chatId || sender !== 'user')
+              ? existingChat.unreadCount
               : existingChat.unreadCount + 1
           },
           ...prevChats.filter(c => c.chatId !== chatId)
         ];
       }
-      
+
       // Si es un chat nuevo, hacer refresh
       refreshChats();
       return prevChats;
@@ -193,7 +194,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setChats(prevChats => [...prevChats, ...newChats]);
         setSkip(prevSkip => prevSkip + newChats.length);
       }
-      
+
       setHasMore(newChats.length === CHAT_PAGE_LIMIT);
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error al cargar más chats');
@@ -202,7 +203,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isLoadingMore, hasMore, user, skip]); // 👈 Añadir useCallback y dependencias
 
-  
+
 
   // Reemplaza tu useEffect de 'user' (línea 214)
   useEffect(() => {
@@ -226,16 +227,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (!chat) return;
 
     const newStatus = chat.chatStatus === 'bot' ? 'human' : 'bot';
-    
+
     try {
       const partialUpdate = await chatService.changeChatStatus(chatId, newStatus);
-      
+
       setChats(prevChats =>
         prevChats.map(c =>
           c.chatId === chatId ? { ...c, ...partialUpdate } : c
         )
       );
-      
+
       if (activeChat?.chatId === chatId) {
         setActiveChat(prevActive => prevActive ? { ...prevActive, ...partialUpdate } : null);
       }
@@ -251,33 +252,33 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     try {
       // ✅ NO agregar el mensaje optimísticamente - esperar la respuesta del servidor
       const newMessage = await chatService.sendMessage(activeChat.chatId, content);
-      
+
       console.log('📤 Mensaje enviado, respuesta:', newMessage);
-      
+
       // ✅ Agregar el mensaje SOLO si no llegó ya por SSE
       setMessages(prev => {
         if (prev.some(m => m.id === newMessage.id)) {
           console.log('⚠️ Mensaje ya existe (llegó por SSE primero)');
           return prev;
         }
-        
+
         const newMessages = [...prev, newMessage];
-        
+
         // Ordenar por timestamp
-        return newMessages.sort((a, b) => 
+        return newMessages.sort((a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
       });
-      
+
       // Actualizar el último mensaje en la lista de chats
       setChats(prevChats =>
         prevChats.map(chat =>
           chat.chatId === activeChat.chatId
-            ? { 
-                ...chat, 
-                lastMessage: content, 
-                lastMessageTimestamp: newMessage.timestamp 
-              }
+            ? {
+              ...chat,
+              lastMessage: content,
+              lastMessageTimestamp: newMessage.timestamp
+            }
             : chat
         )
       );
@@ -297,7 +298,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           chat.chatId === chatId ? { ...chat, ...partialUpdate } : chat
         )
       );
-      
+
       if (activeChat?.chatId === chatId) {
         setActiveChat(prevActive => prevActive ? { ...prevActive, ...partialUpdate } : null);
       }
@@ -306,11 +307,91 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeChat]); // 👈 Añadir useCallback y dependencias
 
+
+  // Función para navegar a un chat por número de teléfono
+  const navigateToChatByPhone = useCallback(async (phoneNumber: string): Promise<boolean> => {
+    console.log('🔍 Buscando chat para número:', phoneNumber);
+    console.log('📋 Total de chats disponibles:', chats.length);
+
+    // Normalizar el número de teléfono (eliminar espacios, guiones, paréntesis, etc.)
+    const normalizePhone = (phone: string): string => {
+      return phone.replace(/[\s\-\(\)\+]/g, '');
+    };
+
+    const normalizedInput = normalizePhone(phoneNumber);
+    console.log('🔢 Número normalizado buscado:', normalizedInput);
+
+    // Buscar el chat que coincida con el número de teléfono
+    let matchingChat = chats.find(chat => {
+      const normalizedChatPhone = normalizePhone(chat.phoneNumber);
+      console.log(`  Comparando con chat: ${chat.phoneNumber} (normalizado: ${normalizedChatPhone})`);
+
+      // Comparar de múltiples formas
+      const exactMatch = normalizedChatPhone === normalizedInput;
+      const endsWithInput = normalizedChatPhone.endsWith(normalizedInput);
+      const inputEndsWithChat = normalizedInput.endsWith(normalizedChatPhone);
+      const containsInput = normalizedChatPhone.includes(normalizedInput);
+      const inputContainsChat = normalizedInput.includes(normalizedChatPhone);
+
+      const isMatch = exactMatch || endsWithInput || inputEndsWithChat || containsInput || inputContainsChat;
+
+      if (isMatch) {
+        console.log('✅ MATCH ENCONTRADO!', {
+          exactMatch,
+          endsWithInput,
+          inputEndsWithChat,
+          containsInput,
+          inputContainsChat
+        });
+      }
+
+      return isMatch;
+    });
+
+    // Si no se encuentra en los chats cargados, buscar en el backend
+    if (!matchingChat) {
+      console.log('🌐 No encontrado en chats cargados, buscando en backend...');
+      try {
+        const clientId = user?.role === 'admin' ? undefined : user?.clientId;
+        const foundChat = await chatService.findChatByPhone(phoneNumber, clientId);
+        if (foundChat) {
+          matchingChat = foundChat;
+        }
+      } catch (error) {
+        console.error('❌ Error al buscar en backend:', error);
+      }
+    }
+
+    if (matchingChat) {
+      console.log('✅ Chat encontrado:', matchingChat);
+      // Establecer el chat activo directamente
+      setActiveChat(matchingChat);
+      // Resetear el unreadCount y agregar a la lista si no está
+      setChats(prevChats => {
+        const exists = prevChats.some(c => c.chatId === matchingChat.chatId);
+        if (exists) {
+          return prevChats.map(c =>
+            c.chatId === matchingChat.chatId
+              ? { ...c, unreadCount: 0 }
+              : c
+          );
+        }
+        // Si no está en la lista, agregarlo al principio
+        return [{ ...matchingChat, unreadCount: 0 }, ...prevChats];
+      });
+      return true;
+    }
+
+    console.log('❌ No se encontró ningún chat que coincida');
+    return false;
+  }, [chats, user]);
+
+
   // Agregar esta función ANTES del return del ChatProvider
   const handleSetActiveChat = useCallback((chat: Chat) => {
     // Establecer el chat activo
     setActiveChat(chat);
-    
+
     // Resetear el unreadCount del chat seleccionado
     setChats(prevChats =>
       prevChats.map(c =>
@@ -335,7 +416,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       refreshChats,
       loadMoreChats,
       hasMore,
-      isLoadingMore
+      isLoadingMore,
+      navigateToChatByPhone
     }}>
       {children}
     </ChatContext.Provider>

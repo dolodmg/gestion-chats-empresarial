@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
+import { useNavigate } from 'react-router-dom';
 import { customTableService, CustomTable, TableRecord } from '../services/customTableService';
 import { Plus, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
 import ExportCSVButton from '@/components/ui/export-csv-button';
@@ -11,6 +13,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 export default function MisDatos() {
   const { user } = useAuth();
+  const { navigateToChatByPhone } = useChat();
+  const navigate = useNavigate();
+
   const [tables, setTables] = useState<CustomTable[]>([]);
   const [tableData, setTableData] = useState<TableRecord[]>([]);
   const [isLoadingTables, setIsLoadingTables] = useState(true);
@@ -27,6 +32,45 @@ export default function MisDatos() {
     total: 0,
     totalPages: 0
   });
+  const [isSearchingChat, setIsSearchingChat] = useState(false);
+
+  // Función para manejar click en números de teléfono
+  const handlePhoneClick = async (phoneNumber: string) => {
+    setIsSearchingChat(true);
+
+    // Mostrar toast de carga
+    const loadingToast = toast.loading('Buscando chat...', {
+      description: `Buscando chat para ${phoneNumber}`
+    });
+
+    try {
+      const found = await navigateToChatByPhone(phoneNumber);
+
+
+      // Cerrar toast de carga
+      toast.dismiss(loadingToast);
+
+      if (found) {
+        navigate('/dashboard');
+        toast.success('Chat encontrado', {
+          description: `Navegando al chat de ${phoneNumber}`
+        });
+      } else {
+        toast.error('Chat no encontrado', {
+          description: `No se encontró un chat para el número ${phoneNumber}`
+        });
+      }
+    } finally {
+      setIsSearchingChat(false);
+    }
+  };
+
+  // Función para detectar si un campo es de teléfono
+  const isPhoneField = (fieldName: string): boolean => {
+    const phoneKeywords = ['phone', 'telefono', 'tel', 'celular', 'movil', 'whatsapp'];
+    const lowerFieldName = fieldName.toLowerCase();
+    return phoneKeywords.some(keyword => lowerFieldName.includes(keyword));
+  };
 
   // Cargar tablas del cliente
   useEffect(() => {
@@ -39,9 +83,9 @@ export default function MisDatos() {
         // Si el usuario tiene un clientId, lo usamos para obtener sus tablas
         const clientId = user.clientId;
         const fetchedTables = await customTableService.getTables(clientId);
-        
+
         setTables(fetchedTables);
-        
+
         // Activar la primera tabla si hay tablas disponibles
         if (fetchedTables.length > 0) {
           setActiveTable(fetchedTables[0]);
@@ -60,7 +104,7 @@ export default function MisDatos() {
   // Cargar datos cuando cambia la tabla activa
   useEffect(() => {
     if (!activeTable) return;
-    
+
     const fetchTableData = async () => {
       setIsLoadingData(true);
       try {
@@ -70,7 +114,7 @@ export default function MisDatos() {
           pagination.limit,
           searchTerm
         );
-        
+
         // Los datos ya vienen ordenados desde el backend (createdAt: -1)
         // Pero si quieres asegurarte, puedes ordenarlos aquí:
         const sortedData = [...result.data].sort((a, b) => {
@@ -79,10 +123,10 @@ export default function MisDatos() {
           const dateB = new Date(b.createdAt);
           return dateB.getTime() - dateA.getTime();
         });
-        
+
         setTableData(sortedData);
         setPagination(result.pagination);
-        
+
         // Hacer scroll al principio de la tabla cuando cambian los datos
         const tableContainer = document.querySelector(".table-container");
         if (tableContainer) {
@@ -102,10 +146,10 @@ export default function MisDatos() {
   // Función para crear un nuevo registro
   const handleCreateRecord = async (formData: any) => {
     if (!activeTable) return;
-    
+
     try {
       await customTableService.createRecord(activeTable._id, formData);
-      
+
       // Recargar datos después de crear
       const result = await customTableService.getTableData(
         activeTable._id,
@@ -113,7 +157,7 @@ export default function MisDatos() {
         pagination.limit,
         searchTerm
       );
-      
+
       setTableData(result.data);
       setPagination(result.pagination);
       setShowAddModal(false);
@@ -127,10 +171,10 @@ export default function MisDatos() {
   // Función para actualizar un registro
   const handleUpdateRecord = async (recordId: string, formData: any) => {
     if (!activeTable) return;
-    
+
     try {
       await customTableService.updateRecord(activeTable._id, recordId, formData);
-      
+
       // Recargar datos después de actualizar
       const result = await customTableService.getTableData(
         activeTable._id,
@@ -138,7 +182,7 @@ export default function MisDatos() {
         pagination.limit,
         searchTerm
       );
-      
+
       setTableData(result.data);
       setPagination(result.pagination);
       setShowAddModal(false);
@@ -153,11 +197,11 @@ export default function MisDatos() {
   // Función para eliminar un registro
   const handleDeleteRecord = async (recordId: string) => {
     if (!activeTable) return;
-    
+
     if (window.confirm('¿Estás seguro de que deseas eliminar este registro?')) {
       try {
         await customTableService.deleteRecord(activeTable._id, recordId);
-        
+
         // Recargar datos después de eliminar
         const result = await customTableService.getTableData(
           activeTable._id,
@@ -165,7 +209,7 @@ export default function MisDatos() {
           pagination.limit,
           searchTerm
         );
-        
+
         setTableData(result.data);
         setPagination(result.pagination);
         toast.success('Registro eliminado', { description: 'El registro ha sido eliminado exitosamente.' });
@@ -255,11 +299,10 @@ export default function MisDatos() {
                   <button
                     key={table._id}
                     onClick={() => setActiveTable(table)}
-                    className={`px-3 py-2 rounded-lg transition-colors text-left min-w-[200px] lg:min-w-0 ${
-                      activeTable?._id === table._id
-                        ? 'bg-blue-100 text-blue-700 font-medium'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                    className={`px-3 py-2 rounded-lg transition-colors text-left min-w-[200px] lg:min-w-0 ${activeTable?._id === table._id
+                      ? 'bg-blue-100 text-blue-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span>{table.tableName}</span>
@@ -281,7 +324,7 @@ export default function MisDatos() {
                       <h2 className="text-lg font-semibold text-gray-900">{activeTable.tableName}</h2>
                       <p className="text-sm text-gray-600">{tableData.length} registros</p>
                     </div>
-                    
+
                     <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 w-full md:w-auto">
                       <div className="w-full sm:w-auto">
                         <ExportCSVButton
@@ -293,9 +336,9 @@ export default function MisDatos() {
                           variant="outline"
                         />
                       </div>
-                      
+
                       {/* Botón de filtros eliminado por no usarse actualmente */}
-                      
+
                       <Button
                         onClick={() => {
                           setEditingRecord(null);
@@ -308,7 +351,7 @@ export default function MisDatos() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   {/* Search Bar */}
                   <div className="mt-4">
                     <div className="relative">
@@ -341,6 +384,9 @@ export default function MisDatos() {
                                 const rawValue = row[field.name];
                                 const isString = typeof rawValue === 'string';
                                 const isObject = rawValue && typeof rawValue === 'object';
+                                const isPhoneColumn = isPhoneField(field.name);
+                                const canClickPhone = user?.clientId === '676360675564956' && isPhoneColumn && isString;
+
                                 let display = '';
                                 let fullText = '';
                                 if (isString) {
@@ -367,8 +413,18 @@ export default function MisDatos() {
                                       {field.label}
                                     </p>
                                     <div className="flex items-start gap-2">
-                                      <span>{display || <span className="text-gray-400">Sin datos</span>}</span>
-                                      {isTruncated && (
+                                      {canClickPhone ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePhoneClick(fullText)}
+                                          className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
+                                        >
+                                          {display}
+                                        </button>
+                                      ) : (
+                                        <span>{display || <span className="text-gray-400">Sin datos</span>}</span>
+                                      )}
+                                      {isTruncated && !canClickPhone && (
                                         <button
                                           type="button"
                                           onClick={() => setViewText({ label: field.label, value: fullText })}
@@ -439,6 +495,9 @@ export default function MisDatos() {
                                     const rawValue = row[field.name];
                                     const isString = typeof rawValue === 'string';
                                     const isObject = rawValue && typeof rawValue === 'object';
+                                    const isPhoneColumn = isPhoneField(field.name);
+                                    const canClickPhone = user?.clientId === '676360675564956' && isPhoneColumn && isString;
+
                                     let display = '';
                                     let fullText = '';
                                     if (isString) {
@@ -465,8 +524,18 @@ export default function MisDatos() {
                                         className="px-6 py-4 text-sm text-gray-900 align-top whitespace-normal break-words max-w-xs"
                                       >
                                         <div className="flex items-start gap-2">
-                                          <span>{display}</span>
-                                          {isTruncated && (
+                                          {canClickPhone ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => handlePhoneClick(fullText)}
+                                              className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
+                                            >
+                                              {display}
+                                            </button>
+                                          ) : (
+                                            <span>{display}</span>
+                                          )}
+                                          {isTruncated && !canClickPhone && (
                                             <button
                                               type="button"
                                               onClick={() => setViewText({ label: field.label, value: fullText })}
@@ -490,7 +559,7 @@ export default function MisDatos() {
                                       >
                                         <Edit2 className="w-4 h-4" />
                                       </button>
-                                      <button 
+                                      <button
                                         onClick={() => handleDeleteRecord(row._id)}
                                         className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50">
                                         <Trash2 className="w-4 h-4" />
@@ -530,7 +599,7 @@ export default function MisDatos() {
                       >
                         &lsaquo;
                       </button>
-                      
+
                       {/* Mostrar números de página */}
                       {Array.from({ length: Math.min(5, pagination.totalPages) }).map((_, i) => {
                         // Calcular qué números mostrar (centrados alrededor de la página actual)
@@ -548,22 +617,21 @@ export default function MisDatos() {
                           // De lo contrario, mostrar 2 páginas antes y 2 después
                           pageNum = pagination.page - 2 + i;
                         }
-                        
+
                         return (
                           <button
                             key={pageNum}
                             onClick={() => handlePageChange(pageNum)}
-                            className={`px-3 py-1 border rounded-md text-sm ${
-                              pagination.page === pageNum 
-                                ? 'bg-blue-600 text-white border-blue-600' 
-                                : 'border-gray-300 hover:bg-gray-50'
-                            }`}
+                            className={`px-3 py-1 border rounded-md text-sm ${pagination.page === pageNum
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 hover:bg-gray-50'
+                              }`}
                           >
                             {pageNum}
                           </button>
                         );
                       })}
-                      
+
                       <button
                         onClick={() => handlePageChange(pagination.page + 1)}
                         disabled={pagination.page === pagination.totalPages}
@@ -723,7 +791,7 @@ export default function MisDatos() {
           )}
         </DialogContent>
       </Dialog>
-            {/* Modal Ver más */}
+      {/* Modal Ver más */}
       {viewText && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">

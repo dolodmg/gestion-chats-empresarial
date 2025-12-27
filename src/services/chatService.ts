@@ -35,16 +35,16 @@ export const chatService = {
       skip, // ⬅️ NUEVO
       limit // ⬅️ NUEVO
     };
-    
+
     if (clientId) {
       params.clientId = clientId;
     }
-    
+
     // ⛔️ ELIMINADO: Ya no hardcodeamos los params aquí
     // params.limit = 100;
     // params.sortBy = 'lastMessageTimestamp';
     // params.sortOrder = 'desc';
-    
+
     const response = await api.get('/chats', { params });
     return response.data;
   },
@@ -62,5 +62,21 @@ export const chatService = {
   async sendMessage(chatId: string, content: string): Promise<Message> {
     const response = await api.post(`/chats/${chatId}/message`, { content });
     return response.data.message;
+  },
+
+  async findChatByPhone(phoneNumber: string, clientId?: string): Promise<Chat | null> {
+    try {
+      const params: any = { phoneNumber };
+      if (clientId) {
+        params.clientId = clientId;
+      }
+      const response = await api.get('/chats/search/phone', { params });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   }
 };
