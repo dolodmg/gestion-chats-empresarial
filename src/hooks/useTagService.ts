@@ -45,7 +45,7 @@ export const useTagService = (): UseTagServiceReturn => {
   const createTag = useCallback(async (name: string, color: string = '#3B82F6'): Promise<Tag> => {
     try {
       console.log('🔵 Creando tag:', { name, color });
-      
+
       const response = await api.post('/tags', { name, color });
 
       console.log('✅ Respuesta:', response.data);
@@ -68,7 +68,7 @@ export const useTagService = (): UseTagServiceReturn => {
   const updateTagColor = useCallback(async (tagName: string, color: string) => {
     try {
       await api.put(`/tags/${encodeURIComponent(tagName)}/color`, { color });
-      setTags(prev => prev.map(tag => 
+      setTags(prev => prev.map(tag =>
         tag.name === tagName ? { ...tag, color } : tag
       ));
     } catch (err: any) {
@@ -89,10 +89,10 @@ export const useTagService = (): UseTagServiceReturn => {
     }
   }, []);
 
-  const addTagToChat = useCallback(async (chatId: string, tagName: string): Promise<string[]> => {
+  const addTagToChat = useCallback(async (chatId: string, tagName: string): Promise<any> => {
     try {
       const response = await api.post(`/tags/chats/${chatId}/tags`, { tag: tagName });
-      return response.data.tags;
+      return response.data; // Return full response including metaEvent
     } catch (err: any) {
       const message = err.response?.data?.error || 'Error agregando tag';
       setError(message);

@@ -11,6 +11,7 @@ import Inscripciones from './pages/Inscripciones';
 import AsistenteIA from './pages/AsistenteIA';
 import Perfil from './pages/Perfil';
 import UserTables from './pages/UserTables';
+import MetaEventos from './pages/MetaEventos';
 import { Toaster } from "@/components/ui/sonner";
 
 function AppRoutes() {
@@ -81,6 +82,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Perfil />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/meta-eventos"
+        element={
+          <ProtectedRoute>
+            <MetaEventos />
           </ProtectedRoute>
         }
       />

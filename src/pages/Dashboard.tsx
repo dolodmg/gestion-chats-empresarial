@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import React, { useState } from 'react'; 
+import React, { useState } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -24,15 +24,15 @@ import {
 import { TagFilter } from '@/components/tags/TagFilter';
 
 export default function Dashboard() {
-  const { 
-    chats, 
-    activeChat, 
-    messages, 
-    isLoading, 
-    error, 
-    setActiveChat, 
-    toggleChatMode, 
-    sendMessage, 
+  const {
+    chats,
+    activeChat,
+    messages,
+    isLoading,
+    error,
+    setActiveChat,
+    toggleChatMode,
+    sendMessage,
     takeChatControl,
     refreshChats,
     loadMoreChats,
@@ -41,12 +41,12 @@ export default function Dashboard() {
   } = useChat();
   const { user } = useAuth();
   const tagService = useTagService();
-  
+
   const [newMessage, setNewMessage] = React.useState('');
   const [isMobile, setIsMobile] = React.useState(false);
   const [showMobileChatList, setShowMobileChatList] = React.useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
-  const [selectedTagFilter, setSelectedTagFilter] = React.useState<string | null>(null); 
+  const [selectedTagFilter, setSelectedTagFilter] = React.useState<string | null>(null);
 
   const listRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
@@ -82,10 +82,24 @@ export default function Dashboard() {
   // Handlers para tags
   const handleAddTag = async (chatId: string, tagName: string) => {
     try {
-      await tagService.addTagToChat(chatId, tagName);
-      
+      const result = await tagService.addTagToChat(chatId, tagName);
+
+      // Show tag added notification
       toast.success('Tag agregada', { description: `Tag "${tagName}" agregada al chat` });
-      
+
+      // Show Meta event notification if applicable
+      if (result.metaEvent && result.metaEvent.attempted) {
+        if (result.metaEvent.success) {
+          toast.success('Evento enviado a Meta', {
+            description: `Evento "${result.metaEvent.eventName}" enviado correctamente`
+          });
+        } else if (result.metaEvent.error) {
+          toast.error('Error al enviar evento a Meta', {
+            description: result.metaEvent.error
+          });
+        }
+      }
+
       refreshChats();
     } catch (error: any) {
       toast.error('Error', { description: error.message });
@@ -95,9 +109,9 @@ export default function Dashboard() {
   const handleRemoveTag = async (chatId: string, tagName: string) => {
     try {
       await tagService.removeTagFromChat(chatId, tagName);
-      
+
       toast.success('Tag removida', { description: `Tag "${tagName}" removida del chat` });
-      
+
       refreshChats();
     } catch (error: any) {
       toast.error('Error', { description: error.message });
@@ -129,7 +143,7 @@ export default function Dashboard() {
     try {
       const date = new Date(timestamp);
       if (isNaN(date.getTime())) return '';
-      
+
       if (isToday(date)) {
         return formatTime(timestamp);
       } else if (isYesterday(date)) {
@@ -146,7 +160,7 @@ export default function Dashboard() {
     try {
       const date = new Date(timestamp);
       if (isNaN(date.getTime())) return '';
-      
+
       if (isToday(date)) {
         return 'Hoy';
       } else if (isYesterday(date)) {
@@ -161,12 +175,12 @@ export default function Dashboard() {
 
   const groupMessagesByDate = (messages: any[]) => {
     const groups: { [key: string]: any[] } = {};
-    
+
     messages.forEach(message => {
       try {
         const date = new Date(message.timestamp);
         if (isNaN(date.getTime())) return;
-        
+
         const dateKey = format(date, 'yyyy-MM-dd');
         if (!groups[dateKey]) {
           groups[dateKey] = [];
@@ -176,13 +190,13 @@ export default function Dashboard() {
         // Skip invalid dates
       }
     });
-    
+
     Object.keys(groups).forEach(dateKey => {
-      groups[dateKey].sort((a, b) => 
+      groups[dateKey].sort((a, b) =>
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
     });
-    
+
     return groups;
   };
 
@@ -213,20 +227,20 @@ export default function Dashboard() {
       if (!a.lastMessageTimestamp && !b.lastMessageTimestamp) return 0;
       if (!a.lastMessageTimestamp) return 1;
       if (!b.lastMessageTimestamp) return -1;
-      
+
       const dateA = new Date(a.lastMessageTimestamp);
       const dateB = new Date(b.lastMessageTimestamp);
-      
+
       const timeA = isNaN(dateA.getTime()) ? 0 : dateA.getTime();
       const timeB = isNaN(dateB.getTime()) ? 0 : dateB.getTime();
-      
+
       return timeB - timeA;
     });
   }, [chats]);
 
   const availableTags = React.useMemo(() => {
     const tagMap = new Map<string, string>();
-    
+
     sortedChats.forEach(chat => {
       if (chat.tags) {
         chat.tags.forEach(tagName => {
@@ -237,7 +251,7 @@ export default function Dashboard() {
         });
       }
     });
-    
+
     return Array.from(tagMap.entries()).map(([name, color]) => ({
       name,
       color
@@ -248,8 +262,8 @@ export default function Dashboard() {
     if (!selectedTagFilter) {
       return sortedChats;
     }
-    
-    return sortedChats.filter(chat => 
+
+    return sortedChats.filter(chat =>
       chat.tags && chat.tags.includes(selectedTagFilter)
     );
   }, [sortedChats, selectedTagFilter]);
@@ -258,9 +272,9 @@ export default function Dashboard() {
     const target = listRef.current;
     if (target) {
       const { scrollTop, scrollHeight, clientHeight } = target;
-      
+
       if (scrollTop + clientHeight >= scrollHeight - 200) {
-        loadMoreChats(); 
+        loadMoreChats();
       }
     }
   };
@@ -269,9 +283,8 @@ export default function Dashboard() {
     <div className="flex flex-1 flex-col lg:flex-row min-h-0 bg-white relative">
       {/* Chat List */}
       <div
-        className={`${
-          isMobile && !showMobileChatList ? 'hidden' : 'flex'
-        } w-full lg:w-1/3 border-gray-200 flex flex-col border-b lg:border-b-0 lg:border-r min-h-0 
+        className={`${isMobile && !showMobileChatList ? 'hidden' : 'flex'
+          } w-full lg:w-1/3 border-gray-200 flex flex-col border-b lg:border-b-0 lg:border-r min-h-0 
         absolute inset-0 lg:static lg:inset-auto z-10`}
       >
         {/* Header */}
@@ -303,12 +316,12 @@ export default function Dashboard() {
           availableTags={availableTags}
           selectedTag={selectedTagFilter}
           onTagSelect={(tagName) => setSelectedTagFilter(tagName)}
-          chatCount={selectedTagFilter ? filteredChats.length : undefined} 
+          chatCount={selectedTagFilter ? filteredChats.length : undefined}
         />
 
         {/* Chat List con scroll infinito */}
-        <div 
-          ref={listRef} 
+        <div
+          ref={listRef}
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto"
         >
@@ -327,9 +340,8 @@ export default function Dashboard() {
               <button
                 key={chat.chatId}
                 onClick={() => handleChatSelect(chat)}
-                className={`w-full text-left p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 ${
-                  activeChat?.chatId === chat.chatId ? 'bg-blue-50' : ''
-                }`}
+                className={`w-full text-left p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 ${activeChat?.chatId === chat.chatId ? 'bg-blue-50' : ''
+                  }`}
               >
                 <div className="flex items-start space-x-3">
                   <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
@@ -360,7 +372,7 @@ export default function Dashboard() {
                         </span>
                       )}
                     </div>
-                    
+
                     {/* Tags del chat */}
                     {chat.tags && chat.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
@@ -377,7 +389,7 @@ export default function Dashboard() {
                         })}
                       </div>
                     )}
-                    
+
                     <div className="flex items-center mt-2">
                       {chat.chatStatus === 'bot' ? (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
@@ -408,7 +420,7 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500">Fin de las conversaciones</p>
             </div>
           )}
-          
+
           {!isLoading && chats.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -423,9 +435,8 @@ export default function Dashboard() {
 
       {/* Chat Area */}
       <div
-        className={`${
-          isMobile && showMobileChatList ? 'hidden' : 'flex'
-        } flex-1 flex flex-col min-h-0 
+        className={`${isMobile && showMobileChatList ? 'hidden' : 'flex'
+          } flex-1 flex flex-col min-h-0 
         absolute inset-0 lg:static lg:inset-auto`}
       >
         {activeChat ? (
@@ -457,7 +468,7 @@ export default function Dashboard() {
                       <span className="text-sm text-gray-600">{activeChat.phoneNumber}</span>
                     </div>
                   </div>
-                  
+
                   {/* Tag Selector en el header */}
                   <TagSelector
                     availableTags={tagService.tags}
@@ -467,25 +478,24 @@ export default function Dashboard() {
                     onCreateTag={() => setIsTagManagerOpen(true)}
                   />
                 </div>
-                
+
                 <div className="flex flex-col gap-3 w-full lg:w-auto">
                   {activeChat.statusChangeTime && activeChat.chatStatus === 'human' && (
                     <div className="flex items-center justify-between sm:justify-center gap-2 bg-orange-50 px-3 py-2 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-orange-600" />
-                      <Timer 
+                      <Timer
                         statusChangeTime={activeChat.statusChangeTime}
                         onExpire={() => toggleChatMode(activeChat.chatId)}
                       />
                     </div>
                   )}
-                  
+
                   <button
                     onClick={() => toggleChatMode(activeChat.chatId)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto flex items-center justify-center gap-2 ${
-                      activeChat.chatStatus === 'bot'
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto flex items-center justify-center gap-2 ${activeChat.chatStatus === 'bot'
                         ? 'bg-green-100 text-green-700 hover:bg-green-200'
                         : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                    }`}
+                      }`}
                   >
                     {activeChat.chatStatus === 'bot' ? (
                       <>
@@ -499,7 +509,7 @@ export default function Dashboard() {
                       </>
                     )}
                   </button>
-                  
+
                   {activeChat.chatStatus === 'bot' && (
                     <button
                       onClick={() => takeChatControl(activeChat.chatId)}
@@ -524,27 +534,25 @@ export default function Dashboard() {
                       {formatMessageDate(messageGroups[dateKey][0]?.timestamp)}
                     </div>
                   </div>
-                  
+
                   {messageGroups[dateKey].map((message) => (
                     <div
                       key={message.id}
                       className={`flex ${message.sender === 'bot' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[70%] px-4 py-2 rounded-lg ${
-                          message.sender === 'user'
+                        className={`max-w-[70%] px-4 py-2 rounded-lg ${message.sender === 'user'
                             ? 'bg-gray-100 text-gray-900'
                             : 'bg-blue-500 text-white'
-                        }`}
+                          }`}
                       >
                         <p className="whitespace-pre-wrap">{message.content}</p>
                         <div className="flex items-center justify-between mt-1">
                           <span
-                            className={`text-xs ${
-                              message.sender === 'user'
+                            className={`text-xs ${message.sender === 'user'
                                 ? 'text-gray-500'
                                 : 'text-white text-opacity-75'
-                            }`}
+                              }`}
                           >
                             {formatTime(message.timestamp)}
                           </span>

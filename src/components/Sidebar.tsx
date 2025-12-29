@@ -11,7 +11,8 @@ import {
   LogOut,
   Brain,
   Menu,
-  X
+  X,
+  TrendingUp
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -22,7 +23,7 @@ export default function Sidebar() {
   // Navigation based on user role and clientId
   const getNavigationItems = () => {
     const items = [];
-    
+
     if (user?.role === 'admin') {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
@@ -35,6 +36,7 @@ export default function Sidebar() {
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
         { path: '/inscripciones', icon: UserPlus, label: 'Inscripciones' },
+        { path: '/meta-eventos', icon: TrendingUp, label: 'Eventos de Meta' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }
       );
@@ -42,11 +44,12 @@ export default function Sidebar() {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
+        { path: '/meta-eventos', icon: TrendingUp, label: 'Eventos de Meta' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }
       );
     }
-    
+
     return items;
   };
 
@@ -99,77 +102,75 @@ export default function Sidebar() {
       )}
 
       <div
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col transform transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:shadow-none md:h-full ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col transform transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:shadow-none md:h-full ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
       >
-      {/* Header */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Brain className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Inteligente</h1>
-            <p className="text-sm text-gray-500">Chat Management</p>
-          </div>
-        </div>
-      </div>
-
-      {/* User Info */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <User className="w-6 h-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{user?.name}</p>
-            <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
-            {user?.clientId && (
-              <p className="text-xs text-gray-400">ID: {user.clientId}</p>
-            )}
+        {/* Header */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Brain className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Inteligente</h1>
+              <p className="text-sm text-gray-500">Chat Management</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  onClick={closeMobileMenu}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+        {/* User Info */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <User className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">{user?.name}</p>
+              <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
+              {user?.clientId && (
+                <p className="text-xs text-gray-400">ID: {user.clientId}</p>
+              )}
+            </div>
+          </div>
+        </div>
 
-      {/* Logout */}
-      <div className="p-4 border-t border-gray-200">
-        <button
-          onClick={handleLogout}
-          className="flex items-center space-x-3 px-3 py-2 w-full text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="font-medium">Cerrar Sesión</span>
-        </button>
+        {/* Navigation */}
+        <nav className="flex-1 p-4">
+          <ul className="space-y-2">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+
+              return (
+                <li key={item.path}>
+                  <Link
+                    to={item.path}
+                    onClick={closeMobileMenu}
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* Logout */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-3 px-3 py-2 w-full text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="font-medium">Cerrar Sesión</span>
+          </button>
+        </div>
       </div>
-    </div>
     </div>
   );
 }
