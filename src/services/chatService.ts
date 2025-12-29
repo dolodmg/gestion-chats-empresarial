@@ -4,6 +4,7 @@ import api from './api';
 
 export interface Chat {
   chatId: string;
+  clientId: string;
   lastMessage: string;
   lastMessageTimestamp: string;
   phoneNumber: string;
@@ -12,6 +13,7 @@ export interface Chat {
   chatStatus: 'bot' | 'human';
   statusChangeTime?: string;
   tags: string[];
+  assignedAdvisorName?: string | null; // 🔑 NUEVO: Asesor asignado
 }
 
 export interface Message {

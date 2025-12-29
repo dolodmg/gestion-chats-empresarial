@@ -12,6 +12,7 @@ import AsistenteIA from './pages/AsistenteIA';
 import Perfil from './pages/Perfil';
 import UserTables from './pages/UserTables';
 import MetaEventos from './pages/MetaEventos';
+import Asesores from './pages/Asesores';
 import { Toaster } from "@/components/ui/sonner";
 
 function AppRoutes() {
@@ -90,6 +91,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MetaEventos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/asesores"
+        element={
+          <ProtectedRoute>
+            <Asesores />
           </ProtectedRoute>
         }
       />

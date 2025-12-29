@@ -32,11 +32,9 @@ export default function MisDatos() {
     total: 0,
     totalPages: 0
   });
-  const [isSearchingChat, setIsSearchingChat] = useState(false);
 
   // Función para manejar click en números de teléfono
   const handlePhoneClick = async (phoneNumber: string) => {
-    setIsSearchingChat(true);
 
     // Mostrar toast de carga
     const loadingToast = toast.loading('Buscando chat...', {
@@ -60,8 +58,11 @@ export default function MisDatos() {
           description: `No se encontró un chat para el número ${phoneNumber}`
         });
       }
-    } finally {
-      setIsSearchingChat(false);
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error('Error', {
+        description: 'Ocurrió un error al buscar el chat'
+      });
     }
   };
 
@@ -385,7 +386,7 @@ export default function MisDatos() {
                                 const isString = typeof rawValue === 'string';
                                 const isObject = rawValue && typeof rawValue === 'object';
                                 const isPhoneColumn = isPhoneField(field.name);
-                                const canClickPhone = user?.clientId === '676360675564956' && isPhoneColumn && isString;
+                                const canClickPhone = isPhoneColumn && isString;
 
                                 let display = '';
                                 let fullText = '';
@@ -496,7 +497,7 @@ export default function MisDatos() {
                                     const isString = typeof rawValue === 'string';
                                     const isObject = rawValue && typeof rawValue === 'object';
                                     const isPhoneColumn = isPhoneField(field.name);
-                                    const canClickPhone = user?.clientId === '676360675564956' && isPhoneColumn && isString;
+                                    const canClickPhone = isPhoneColumn && isString;
 
                                     let display = '';
                                     let fullText = '';

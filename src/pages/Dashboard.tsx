@@ -390,7 +390,7 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    <div className="flex items-center mt-2">
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
                       {chat.chatStatus === 'bot' ? (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                           <Bot className="w-3 h-3 mr-1" />
@@ -400,6 +400,14 @@ export default function Dashboard() {
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
                           <User className="w-3 h-3 mr-1" />
                           Manual
+                        </span>
+                      )}
+
+                      {/* Asesor asignado */}
+                      {chat.assignedAdvisorName && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                          <User className="w-3 h-3 mr-1" />
+                          {chat.assignedAdvisorName}
                         </span>
                       )}
                     </div>
@@ -493,8 +501,8 @@ export default function Dashboard() {
                   <button
                     onClick={() => toggleChatMode(activeChat.chatId)}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto flex items-center justify-center gap-2 ${activeChat.chatStatus === 'bot'
-                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                       }`}
                   >
                     {activeChat.chatStatus === 'bot' ? (
@@ -542,16 +550,16 @@ export default function Dashboard() {
                     >
                       <div
                         className={`max-w-[70%] px-4 py-2 rounded-lg ${message.sender === 'user'
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'bg-blue-500 text-white'
+                          ? 'bg-gray-100 text-gray-900'
+                          : 'bg-blue-500 text-white'
                           }`}
                       >
                         <p className="whitespace-pre-wrap">{message.content}</p>
                         <div className="flex items-center justify-between mt-1">
                           <span
                             className={`text-xs ${message.sender === 'user'
-                                ? 'text-gray-500'
-                                : 'text-white text-opacity-75'
+                              ? 'text-gray-500'
+                              : 'text-white text-opacity-75'
                               }`}
                           >
                             {formatTime(message.timestamp)}

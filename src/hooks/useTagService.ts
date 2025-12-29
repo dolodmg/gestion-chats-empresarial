@@ -14,11 +14,18 @@ interface UseTagServiceReturn {
   error: string | null;
   loadUserTags: () => Promise<void>;
   createTag: (name: string, color: string) => Promise<Tag>;
-  updateTagColor: (tagName: string, color: string) => Promise<void>;
+  updateTag: (tagName: string, color: string) => Promise<void>;
   deleteTag: (tagName: string) => Promise<void>;
-  addTagToChat: (chatId: string, tagName: string) => Promise<string[]>;
+  addTagToChat: (chatId: string, tagName: string) => Promise<{
+    tags: string[];
+    metaEvent?: {
+      attempted: boolean;
+      success: boolean;
+      eventName?: string;
+      error?: string;
+    };
+  }>;
   removeTagFromChat: (chatId: string, tagName: string) => Promise<string[]>;
-  updateChatTags: (chatId: string, tags: string[]) => Promise<string[]>;
   getTag: (tagName: string) => Tag | undefined;
 }
 
@@ -65,7 +72,7 @@ export const useTagService = (): UseTagServiceReturn => {
     }
   }, []);
 
-  const updateTagColor = useCallback(async (tagName: string, color: string) => {
+  const updateTag = useCallback(async (tagName: string, color: string) => {
     try {
       await api.put(`/tags/${encodeURIComponent(tagName)}/color`, { color });
       setTags(prev => prev.map(tag =>
@@ -89,7 +96,15 @@ export const useTagService = (): UseTagServiceReturn => {
     }
   }, []);
 
-  const addTagToChat = useCallback(async (chatId: string, tagName: string): Promise<any> => {
+  const addTagToChat = useCallback(async (chatId: string, tagName: string): Promise<{
+    tags: string[];
+    metaEvent?: {
+      attempted: boolean;
+      success: boolean;
+      eventName?: string;
+      error?: string;
+    };
+  }> => {
     try {
       const response = await api.post(`/tags/chats/${chatId}/tags`, { tag: tagName });
       return response.data; // Return full response including metaEvent
@@ -111,17 +126,6 @@ export const useTagService = (): UseTagServiceReturn => {
     }
   }, []);
 
-  const updateChatTags = useCallback(async (chatId: string, tags: string[]): Promise<string[]> => {
-    try {
-      const response = await api.put(`/tags/chats/${chatId}/tags`, { tags });
-      return response.data.tags;
-    } catch (err: any) {
-      const message = err.response?.data?.error || 'Error actualizando tags';
-      setError(message);
-      throw new Error(message);
-    }
-  }, []);
-
   const getTag = useCallback((tagName: string): Tag | undefined => {
     return tags.find(t => t.name === tagName.toLowerCase());
   }, [tags]);
@@ -132,11 +136,10 @@ export const useTagService = (): UseTagServiceReturn => {
     error,
     loadUserTags,
     createTag,
-    updateTagColor,
+    updateTag,
     deleteTag,
     addTagToChat,
     removeTagFromChat,
-    updateChatTags,
     getTag
   };
 };
