@@ -68,9 +68,20 @@ export default function MisDatos() {
 
   // Función para detectar si un campo es de teléfono
   const isPhoneField = (fieldName: string): boolean => {
-    const phoneKeywords = ['phone', 'telefono', 'tel', 'celular', 'movil', 'whatsapp'];
+    const phoneKeywords = [
+      'phone', 'telefono', 'teléfono', 'tel', 'celular',
+      'movil', 'móvil', 'whatsapp', 'wsp', 'contacto',
+      'numero', 'número', 'fono', 'cell'
+    ];
     const lowerFieldName = fieldName.toLowerCase();
-    return phoneKeywords.some(keyword => lowerFieldName.includes(keyword));
+    const isPhone = phoneKeywords.some(keyword => lowerFieldName.includes(keyword));
+
+    // 🔍 DEBUG
+    if (fieldName.toLowerCase().includes('tel')) {
+      console.log('🔍 Detectando campo:', fieldName, '→', isPhone ? '✅ ES TELÉFONO' : '❌ NO ES TELÉFONO');
+    }
+
+    return isPhone;
   };
 
   // Cargar tablas del cliente
@@ -379,20 +390,34 @@ export default function MisDatos() {
                     ) : (
                       <div className="space-y-4">
                         {tableData.map((row) => (
-                          <div key={row._id} className="border border-gray-200 rounded-lg p-4 shadow-sm">
+                          <div key={row._id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                            {/* Asesor Asignado Badge */}
+                            {(row as any).assignedAdvisorName && (
+                              <div className="mb-3 pb-3 border-b border-gray-200">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  👤 {(row as any).assignedAdvisorName}
+                                </span>
+                              </div>
+                            )}
                             <div className="space-y-3">
                               {activeTable.fields.map((field) => {
                                 const rawValue = row[field.name];
                                 const isString = typeof rawValue === 'string';
+                                const isNumber = typeof rawValue === 'number';
                                 const isObject = rawValue && typeof rawValue === 'object';
                                 const isPhoneColumn = isPhoneField(field.name);
-                                const canClickPhone = isPhoneColumn && isString;
+                                // 🔑 NUEVO: Permitir click en teléfonos que sean string O number
+                                const canClickPhone = isPhoneColumn && (isString || isNumber);
 
                                 let display = '';
                                 let fullText = '';
                                 if (isString) {
                                   fullText = rawValue as string;
                                   display = fullText.length > 120 ? `${fullText.slice(0, 120)}…` : fullText;
+                                } else if (isNumber) {
+                                  // 🔑 NUEVO: Convertir números a string
+                                  fullText = String(rawValue);
+                                  display = fullText;
                                 } else if (isObject) {
                                   try {
                                     fullText = JSON.stringify(rawValue);
@@ -484,6 +509,9 @@ export default function MisDatos() {
                                     {field.label}
                                   </th>
                                 ))}
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Asesor
+                                </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   Acciones
                                 </th>
@@ -495,15 +523,21 @@ export default function MisDatos() {
                                   {activeTable.fields.map((field) => {
                                     const rawValue = row[field.name];
                                     const isString = typeof rawValue === 'string';
+                                    const isNumber = typeof rawValue === 'number';
                                     const isObject = rawValue && typeof rawValue === 'object';
                                     const isPhoneColumn = isPhoneField(field.name);
-                                    const canClickPhone = isPhoneColumn && isString;
+                                    // 🔑 NUEVO: Permitir click en teléfonos que sean string O number
+                                    const canClickPhone = isPhoneColumn && (isString || isNumber);
 
                                     let display = '';
                                     let fullText = '';
                                     if (isString) {
                                       fullText = rawValue as string;
                                       display = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
+                                    } else if (isNumber) {
+                                      // 🔑 NUEVO: Convertir números a string
+                                      fullText = String(rawValue);
+                                      display = fullText;
                                     } else if (isObject) {
                                       try {
                                         fullText = JSON.stringify(rawValue);
@@ -549,6 +583,19 @@ export default function MisDatos() {
                                       </td>
                                     );
                                   })}
+
+                                  {/* Columna de Asesor Asignado */}
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    {(row as any).assignedAdvisorName ? (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {(row as any).assignedAdvisorName}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">Sin asignar</span>
+                                    )}
+                                  </td>
+
+                                  {/* Columna de Acciones */}
                                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div className="flex items-center justify-end space-x-2">
                                       <button
