@@ -31,6 +31,13 @@ export default function Sidebar() {
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }
       );
+    } else if (user?.role === 'advisor') {
+      // Asesores tienen acceso a Dashboard, Mis Datos y Perfil
+      items.push(
+        { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
+        { path: '/data', icon: Database, label: 'Mis Datos' },
+        { path: '/profile', icon: User, label: 'Perfil' }
+      );
     } else if (user?.clientId === '751524394719240') {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },

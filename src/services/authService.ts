@@ -9,8 +9,9 @@ export interface User {
   _id: string;
   name: string;
   email: string;
-  role: 'admin' | 'client';
+  role: 'admin' | 'client' | 'advisor';
   clientId?: string;
+  advisorId?: string;
   workflowId?: string;
   whatsappToken?: string;
 }
@@ -24,10 +25,10 @@ export const authService = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const response = await api.post('/auth/login', credentials);
     const { token, user } = response.data;
-    
+
     localStorage.setItem('auth_token', token);
     localStorage.setItem('user_data', JSON.stringify(user));
-    
+
     return { token, user };
   },
 

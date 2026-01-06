@@ -65,7 +65,7 @@ function AppRoutes() {
       <Route
         path="/inscripciones"
         element={
-          <ProtectedRoute requiredClientId="751524394719240">
+          <ProtectedRoute requiredClientId="751524394719240" excludeRole="advisor">
             <Inscripciones />
           </ProtectedRoute>
         }
@@ -73,7 +73,7 @@ function AppRoutes() {
       <Route
         path="/assistant"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute excludeRole="advisor">
             <AsistenteIA />
           </ProtectedRoute>
         }
@@ -89,7 +89,7 @@ function AppRoutes() {
       <Route
         path="/meta-eventos"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute excludeRole="advisor">
             <MetaEventos />
           </ProtectedRoute>
         }
@@ -97,7 +97,7 @@ function AppRoutes() {
       <Route
         path="/asesores"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute excludeRole="advisor">
             <Asesores />
           </ProtectedRoute>
         }
