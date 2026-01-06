@@ -1,7 +1,6 @@
 // src/pages/Dashboard.tsx
 import React, { useState } from 'react';
 import { useChat } from '../context/ChatContext';
-import { useAuth } from '../context/AuthContext';
 import { format, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Timer from '../components/Timer';
@@ -39,7 +38,6 @@ export default function Dashboard() {
     hasMore,
     isLoadingMore
   } = useChat();
-  const { user } = useAuth();
   const tagService = useTagService();
 
   const [newMessage, setNewMessage] = React.useState('');
@@ -644,7 +642,7 @@ export default function Dashboard() {
           refreshChats(); // Actualizar chats para reflejar cambios
         }}
         onUpdateTagColor={async (tagName, color) => {
-          await tagService.updateTagColor(tagName, color);
+          await tagService.updateTag(tagName, color);
           toast.success('Color actualizado', { description: `Color de "${tagName}" actualizado` });
           refreshChats(); // Actualizar chats para ver nuevo color
         }}
