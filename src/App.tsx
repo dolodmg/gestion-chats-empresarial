@@ -106,7 +106,7 @@ function AppRoutes() {
       <Route
         path="/campaigns"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute>
             <Campaigns />
           </ProtectedRoute>
         }
