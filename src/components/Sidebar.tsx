@@ -12,7 +12,8 @@ import {
   Brain,
   Menu,
   X,
-  TrendingUp
+  TrendingUp,
+  Mail
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -28,6 +29,7 @@ export default function Sidebar() {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/admin', icon: Users, label: 'Panel Admin' },
+        { path: '/campaigns', icon: Mail, label: 'Campañas' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }
       );
