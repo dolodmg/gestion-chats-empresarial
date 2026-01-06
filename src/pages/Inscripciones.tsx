@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Search, Filter, Trash2, Mail, Calendar, Loader2, X } from 'lucide-react';
@@ -41,11 +41,11 @@ export default function Inscripciones() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [courses, setCourses] = useState<Array<{ name: string; normalizedName: string; count: number }>>([]);
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [provinciaFilter, setProvinciaFilter] = useState('todas');
   const [cursoFilter, setCursoFilter] = useState('todos');
-  
+
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -86,10 +86,10 @@ export default function Inscripciones() {
       if (cursoFilter && cursoFilter !== 'todos') filters.curso = cursoFilter;
 
       const result = await inscriptionService.getInscriptions(filters);
-      
+
       setInscriptions(result.inscriptions);
       setPagination(result.pagination);
-      
+
       const tableContainer = document.querySelector('.table-container');
       if (tableContainer) {
         tableContainer.scrollTop = 0;
@@ -106,7 +106,7 @@ export default function Inscripciones() {
     if (!window.confirm('¿Estás seguro de que deseas eliminar esta inscripción?')) {
       return;
     }
-    
+
     try {
       await inscriptionService.deleteInscription(id);
       toast.success("Inscripción eliminada", {
@@ -138,7 +138,7 @@ export default function Inscripciones() {
 
   const handleExportWithFilters = async (): Promise<Blob> => {
     const filters: any = {};
-    
+
     if (searchTerm.trim()) filters.dni = searchTerm.trim();
     if (provinciaFilter && provinciaFilter !== 'todas') filters.provincia = provinciaFilter;
     if (cursoFilter && cursoFilter !== 'todos') filters.curso = cursoFilter;
@@ -148,7 +148,7 @@ export default function Inscripciones() {
 
   const getFilenameSuffix = () => {
     const parts: string[] = [];
-    
+
     if (provinciaFilter && provinciaFilter !== 'todas') {
       parts.push(provinciaFilter.replace(/\s+/g, '_'));
     }
@@ -158,7 +158,7 @@ export default function Inscripciones() {
     if (searchTerm.trim()) {
       parts.push(`dni_${searchTerm.trim()}`);
     }
-    
+
     return parts.length > 0 ? parts.join('_') : '';
   };
 
@@ -229,7 +229,7 @@ export default function Inscripciones() {
               <h2 className="text-lg font-semibold text-gray-900">Lista de Inscripciones</h2>
               <p className="text-sm text-gray-600">{inscriptions.length} registros</p>
             </div>
-            
+
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
               <ExportCSVButton
                 onExport={handleExportWithFilters}
@@ -239,11 +239,11 @@ export default function Inscripciones() {
                 onSuccess={() => toast.success("Exportado", { description: "El archivo CSV se ha descargado correctamente." })}
                 disabled={isLoadingData}
               />
-              
+
               <CreateInscriptionDialog onInscriptionCreated={fetchInscriptions} />
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Buscar por DNI</label>
@@ -470,7 +470,7 @@ export default function Inscripciones() {
               >
                 &lsaquo;
               </button>
-              
+
               {Array.from({ length: Math.min(5, pagination.totalPages) }).map((_, i) => {
                 let pageNum;
                 if (pagination.totalPages <= 5) {
@@ -482,22 +482,21 @@ export default function Inscripciones() {
                 } else {
                   pageNum = pagination.page - 2 + i;
                 }
-                
+
                 return (
                   <button
                     key={pageNum}
                     onClick={() => handlePageChange(pageNum)}
-                    className={`px-3 py-1 border rounded-md text-sm ${
-                      pagination.page === pageNum 
-                        ? 'bg-blue-600 text-white border-blue-600' 
+                    className={`px-3 py-1 border rounded-md text-sm ${pagination.page === pageNum
+                        ? 'bg-blue-600 text-white border-blue-600'
                         : 'border-gray-300 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     {pageNum}
                   </button>
                 );
               })}
-              
+
               <button
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.totalPages}
