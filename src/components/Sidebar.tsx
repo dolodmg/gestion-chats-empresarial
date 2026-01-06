@@ -37,8 +37,8 @@ export default function Sidebar() {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
-        { path: '/inscripciones', icon: UserPlus, label: 'Inscripciones' },
         { path: '/campaigns', icon: Mail, label: 'Campañas' },
+        { path: '/inscripciones', icon: UserPlus, label: 'Inscripciones' },
         { path: '/meta-eventos', icon: TrendingUp, label: 'Eventos de Meta' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }
