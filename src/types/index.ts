@@ -6,11 +6,19 @@ export type { Inscription } from '../services/inscriptionService';
 
 // Campaign types
 export interface Recipient {
+    _id?: string;
     email: string;
     name: string;
     status: 'pending' | 'sent' | 'failed';
     sentAt?: string;
     error?: string;
+    // Tracking fields
+    opened?: boolean;
+    openedAt?: string;
+    openCount?: number;
+    clicked?: boolean;
+    clickedAt?: string;
+    clickCount?: number;
 }
 
 export interface Campaign {
@@ -26,6 +34,13 @@ export interface Campaign {
     totalRecipients: number;
     createdBy: string;
     emailCredential: string | EmailCredential;
+    // Statistics fields
+    openCount?: number;
+    clickCount?: number;
+    uniqueOpens?: number;
+    uniqueClicks?: number;
+    openRate?: number;
+    clickRate?: number;
     sentAt?: string;
     completedAt?: string;
     createdAt: string;
@@ -37,6 +52,10 @@ export interface CampaignStats {
     totalSent: number;
     totalFailed: number;
     totalRecipients: number;
+    totalOpens: number;
+    totalClicks: number;
+    averageOpenRate: number;
+    averageClickRate: number;
 }
 
 export interface CreateCampaignData {

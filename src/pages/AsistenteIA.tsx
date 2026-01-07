@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Bot, MessageCircle, TrendingUp, Settings, Zap, Brain, BarChart3, PlusCircle, Edit, Trash2, History, Save, X, RefreshCw, Pin, Archive, CheckCircle } from 'lucide-react';
+import { MessageCircle, TrendingUp, Settings, BarChart3, Edit, Trash2, History, Save, X, RefreshCw, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { assistantService, AssistantPromptRecord, GetPromptResponse } from '../services/assistantService';
+import { assistantService, AssistantPromptRecord, GetPromptResponse, AnalyticsStats, ImprovementSuggestion } from '../services/assistantService';
 import { faqService, FAQ, FAQStats } from '../services/faqService';
+import AnalyticsTab from '../components/AnalyticsTab';
+import ImprovementsTab from '../components/ImprovementsTab';
 
 export default function AsistenteIA() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('config');
-  
+
   // Estado del prompt actual
   const [isLoading, setIsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -19,7 +21,7 @@ export default function AsistenteIA() {
   const [workflowId, setWorkflowId] = useState<string | undefined>(undefined);
   const [nodeId, setNodeId] = useState<string | undefined>(undefined);
   const [lastUpdated, setLastUpdated] = useState<string | undefined>(undefined);
-  
+
   // Historial
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [history, setHistory] = useState<AssistantPromptRecord[]>([]);
@@ -35,6 +37,15 @@ export default function AsistenteIA() {
   const [categories, setCategories] = useState<string[]>([]);
   const [editingFAQ, setEditingFAQ] = useState<string | null>(null);
   const [editCustomResponse, setEditCustomResponse] = useState('');
+
+  // Analytics
+  const [analytics, setAnalytics] = useState<AnalyticsStats | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  // Improvements
+  const [improvements, setImprovements] = useState<ImprovementSuggestion[]>([]);
+  const [improvementsLoading, setImprovementsLoading] = useState(false);
+  const [generatingImprovements, setGeneratingImprovements] = useState(false);
 
   const currentClientId = user?.role === 'admin' ? undefined : user?.clientId;
 
@@ -114,7 +125,7 @@ export default function AsistenteIA() {
       });
       setFaqs(response.faqs);
       setCategories(response.categories);
-      
+
       // Cargar stats
       const statsResponse = await faqService.getStats(currentClientId);
       setFaqStats(statsResponse.stats);
@@ -153,7 +164,7 @@ export default function AsistenteIA() {
 
   const handleDeleteFAQ = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar esta FAQ?')) return;
-    
+
     try {
       await faqService.deleteFAQ(id);
       setStatus('FAQ eliminada correctamente');
@@ -171,9 +182,56 @@ export default function AsistenteIA() {
   useEffect(() => {
     if (activeTab === 'faqs') {
       loadFAQs();
+    } else if (activeTab === 'analytics') {
+      loadAnalytics();
+    } else if (activeTab === 'improvements') {
+      loadImprovements();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedCategory]);
+
+  // Funciones para Analytics
+  const loadAnalytics = async () => {
+    setAnalyticsLoading(true);
+    setError(null);
+    try {
+      const response = await assistantService.getAnalytics(currentClientId);
+      setAnalytics(response.stats);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Error al cargar analytics');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  // Funciones para Improvements
+  const loadImprovements = async () => {
+    setImprovementsLoading(true);
+    setError(null);
+    try {
+      const response = await assistantService.getImprovements(currentClientId);
+      setImprovements(response.suggestions);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Error al cargar mejoras');
+    } finally {
+      setImprovementsLoading(false);
+    }
+  };
+
+  const handleGenerateImprovements = async () => {
+    setGeneratingImprovements(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const response = await assistantService.generateImprovements(currentClientId);
+      setStatus(`Análisis completado: ${response.count} sugerencias generadas`);
+      setImprovements(response.suggestions);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Error al generar mejoras');
+    } finally {
+      setGeneratingImprovements(false);
+    }
+  };
 
   const tabs = [
     { id: 'config', label: 'Configuración', icon: Settings },
@@ -200,11 +258,10 @@ export default function AsistenteIA() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center sm:justify-start space-y-1 sm:space-y-0 sm:space-x-2 whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center sm:justify-start space-y-1 sm:space-y-0 sm:space-x-2 whitespace-nowrap ${activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>{tab.label}</span>
@@ -336,11 +393,10 @@ export default function AsistenteIA() {
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   <button
                     onClick={() => setSelectedCategory('all')}
-                    className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap ${
-                      selectedCategory === 'all'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap ${selectedCategory === 'all'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     Todas
                   </button>
@@ -348,11 +404,10 @@ export default function AsistenteIA() {
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap ${
-                        selectedCategory === cat
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap ${selectedCategory === cat
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                     >
                       {cat}
                     </button>
@@ -470,9 +525,25 @@ export default function AsistenteIA() {
             </div>
           )}
 
-          {/* Otros tabs (Analytics, Improvements) */}
-          {(activeTab === 'analytics' || activeTab === 'improvements') && (
-            <div className="text-gray-600 text-sm">Próximamente</div>
+          {/* Analytics Tab */}
+          {activeTab === 'analytics' && (
+            <AnalyticsTab
+              analytics={analytics}
+              loading={analyticsLoading}
+              error={error}
+            />
+          )}
+
+          {/* Improvements Tab */}
+          {activeTab === 'improvements' && (
+            <ImprovementsTab
+              improvements={improvements}
+              loading={improvementsLoading}
+              generating={generatingImprovements}
+              error={error}
+              status={status}
+              onGenerate={handleGenerateImprovements}
+            />
           )}
         </div>
       </div>
@@ -492,7 +563,7 @@ export default function AsistenteIA() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               <div className="space-y-3">
                 {history.map((item) => (
