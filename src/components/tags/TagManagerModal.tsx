@@ -15,6 +15,7 @@ interface TagManagerModalProps {
   onCreateTag: (name: string, color: string) => Promise<void>;
   onDeleteTag: (tagName: string) => Promise<void>;
   onUpdateTagColor: (tagName: string, color: string) => Promise<void>;
+  readOnly?: boolean; // For advisors - can view and edit colors but not create/delete
 }
 
 export const TagManagerModal: React.FC<TagManagerModalProps> = ({
@@ -23,7 +24,8 @@ export const TagManagerModal: React.FC<TagManagerModalProps> = ({
   tags,
   onCreateTag,
   onDeleteTag,
-  onUpdateTagColor
+  onUpdateTagColor,
+  readOnly = false
 }) => {
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3B82F6');
@@ -51,7 +53,7 @@ export const TagManagerModal: React.FC<TagManagerModalProps> = ({
 
     setLoading(true);
     setError(null);
-    
+
     try {
       await onCreateTag(newTagName.trim(), newTagColor);
       setNewTagName('');
@@ -106,49 +108,51 @@ export const TagManagerModal: React.FC<TagManagerModalProps> = ({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {/* Create new tag */}
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 tracking-wide">
-              Crear nueva etiqueta
-            </h3>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleCreateTag()}
-                placeholder="Nombre de la etiqueta"
-                maxLength={30}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                disabled={loading}
-              />
-              <input
-                type="color"
-                value={newTagColor}
-                onChange={(e) => setNewTagColor(e.target.value)}
-                className="w-14 h-10 border border-gray-300 rounded-lg cursor-pointer"
-                disabled={loading}
-              />
-              <button
-                onClick={handleCreateTag}
-                disabled={loading || !newTagName.trim()}
-                className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Crear
-              </button>
+          {/* Create new tag - Hidden for read-only mode */}
+          {!readOnly && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 tracking-wide">
+                Crear nueva etiqueta
+              </h3>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleCreateTag()}
+                  placeholder="Nombre de la etiqueta"
+                  maxLength={30}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  disabled={loading}
+                />
+                <input
+                  type="color"
+                  value={newTagColor}
+                  onChange={(e) => setNewTagColor(e.target.value)}
+                  className="w-14 h-10 border border-gray-300 rounded-lg cursor-pointer"
+                  disabled={loading}
+                />
+                <button
+                  onClick={handleCreateTag}
+                  disabled={loading || !newTagName.trim()}
+                  className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Crear
+                </button>
+              </div>
+              {error && (
+                <p className="text-sm text-red-600 mt-2">{error}</p>
+              )}
             </div>
-            {error && (
-              <p className="text-sm text-red-600 mt-2">{error}</p>
-            )}
-          </div>
+          )}
 
           {/* Existing tags */}
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-3 tracking-wide">
               Tags existentes ({tags.length})
             </h3>
-            
+
             {tags.length === 0 ? (
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
@@ -220,14 +224,17 @@ export const TagManagerModal: React.FC<TagManagerModalProps> = ({
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteTag(tag.name)}
-                            disabled={loading}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Eliminar tag"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {/* Delete button - Hidden for read-only mode */}
+                          {!readOnly && (
+                            <button
+                              onClick={() => handleDeleteTag(tag.name)}
+                              disabled={loading}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar tag"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>

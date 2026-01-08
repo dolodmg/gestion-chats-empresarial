@@ -479,12 +479,13 @@ function AdvisorModal({
     open: boolean;
     advisor: Advisor | null;
     onClose: () => void;
-    onCreate: (data: { name: string; email?: string; phone?: string }) => void;
+    onCreate: (data: { name: string; email: string; password: string; phone?: string }) => void;
     onUpdate: (id: string, data: { name?: string; email?: string; phone?: string }) => void;
 }) {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
+        password: '',
         phone: '',
     });
 
@@ -493,10 +494,11 @@ function AdvisorModal({
             setFormData({
                 name: advisor.name,
                 email: advisor.email || '',
+                password: '',
                 phone: advisor.phone || '',
             });
         } else {
-            setFormData({ name: '', email: '', phone: '' });
+            setFormData({ name: '', email: '', password: '', phone: '' });
         }
     }, [advisor, open]);
 
@@ -536,15 +538,35 @@ function AdvisorModal({
                     </div>
 
                     <div>
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">
+                            Email <span className="text-red-500">*</span>
+                        </Label>
                         <Input
                             id="email"
                             type="email"
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            required
                             placeholder="juan@ejemplo.com"
                         />
                     </div>
+
+                    {!advisor && (
+                        <div>
+                            <Label htmlFor="password">
+                                Contraseña <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                id="password"
+                                type="password"
+                                value={formData.password}
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                required
+                                minLength={6}
+                                placeholder="Mínimo 6 caracteres"
+                            />
+                        </div>
+                    )}
 
                     <div>
                         <Label htmlFor="phone">Teléfono</Label>

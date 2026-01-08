@@ -1,6 +1,7 @@
 // src/pages/Dashboard.tsx
 import React, { useState } from 'react';
 import { useChat } from '../context/ChatContext';
+import { useAuth } from '../context/AuthContext';
 import { format, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Timer from '../components/Timer';
@@ -23,6 +24,7 @@ import {
 import { TagFilter } from '@/components/tags/TagFilter';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const {
     chats,
     activeChat,
@@ -632,6 +634,7 @@ export default function Dashboard() {
         isOpen={isTagManagerOpen}
         onClose={() => setIsTagManagerOpen(false)}
         tags={tagService.tags}
+        readOnly={user?.role === 'advisor'}
         onCreateTag={async (name, color) => {
           await tagService.createTag(name, color);
           toast.success('Tag creada', { description: `Tag "${name}" creada exitosamente` });

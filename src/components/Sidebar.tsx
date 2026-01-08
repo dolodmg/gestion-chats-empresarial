@@ -12,7 +12,8 @@ import {
   Brain,
   Menu,
   X,
-  TrendingUp
+  TrendingUp,
+  BarChart3
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -52,6 +53,7 @@ export default function Sidebar() {
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
         { path: '/asesores', icon: Users, label: 'Asesores' },
+        { path: '/advisor-metrics', icon: BarChart3, label: 'Métricas de Asesores' },
         { path: '/meta-eventos', icon: TrendingUp, label: 'Eventos de Meta' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }

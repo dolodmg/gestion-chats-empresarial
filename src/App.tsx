@@ -13,6 +13,7 @@ import Perfil from './pages/Perfil';
 import UserTables from './pages/UserTables';
 import MetaEventos from './pages/MetaEventos';
 import Asesores from './pages/Asesores';
+import AdvisorMetrics from './pages/AdvisorMetrics';
 import { Toaster } from "@/components/ui/sonner";
 
 function AppRoutes() {
@@ -99,6 +100,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute excludeRole="advisor">
             <Asesores />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/advisor-metrics"
+        element={
+          <ProtectedRoute excludeRole="advisor">
+            <AdvisorMetrics />
           </ProtectedRoute>
         }
       />
