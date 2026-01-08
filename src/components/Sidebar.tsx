@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Mail
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -29,6 +30,7 @@ export default function Sidebar() {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/admin', icon: Users, label: 'Panel Admin' },
+        { path: '/campaigns', icon: Mail, label: 'Campañas' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }
       );
@@ -43,6 +45,7 @@ export default function Sidebar() {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
+        { path: '/campaigns', icon: Mail, label: 'Campañas' },
         { path: '/inscripciones', icon: UserPlus, label: 'Inscripciones' },
         { path: '/meta-eventos', icon: TrendingUp, label: 'Eventos de Meta' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
@@ -52,6 +55,7 @@ export default function Sidebar() {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
+        { path: '/campaigns', icon: Mail, label: 'Campañas' },
         { path: '/asesores', icon: Users, label: 'Asesores' },
         { path: '/advisor-metrics', icon: BarChart3, label: 'Métricas de Asesores' },
         { path: '/meta-eventos', icon: TrendingUp, label: 'Eventos de Meta' },
