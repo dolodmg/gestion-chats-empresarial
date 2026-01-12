@@ -13,6 +13,7 @@ export interface Chat {
   chatStatus: 'bot' | 'human';
   statusChangeTime?: string;
   tags: string[];
+  assignedAdvisorId?: string | null;
   assignedAdvisorName?: string | null; // 🔑 NUEVO: Asesor asignado
 }
 
@@ -80,5 +81,10 @@ export const chatService = {
       }
       throw error;
     }
+  },
+
+  async assignChatToAdvisor(chatId: string, advisorId: string | null): Promise<Chat> {
+    const response = await api.put(`/chats/${chatId}/assign-advisor`, { advisorId });
+    return response.data.chat;
   }
 };

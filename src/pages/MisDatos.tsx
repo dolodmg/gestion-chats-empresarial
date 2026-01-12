@@ -351,16 +351,18 @@ export default function MisDatos() {
 
                       {/* Botón de filtros eliminado por no usarse actualmente */}
 
-                      <Button
-                        onClick={() => {
-                          setEditingRecord(null);
-                          setShowAddModal(true);
-                        }}
-                        className="w-full sm:w-auto bg-sky-700 hover:bg-sky-800"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Nuevo registro
-                      </Button>
+                      {user?.role !== 'advisor' && (
+                        <Button
+                          onClick={() => {
+                            setEditingRecord(null);
+                            setShowAddModal(true);
+                          }}
+                          className="w-full sm:w-auto bg-sky-700 hover:bg-sky-800"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Nuevo registro
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -464,25 +466,27 @@ export default function MisDatos() {
                                 );
                               })}
                             </div>
-                            <div className="mt-4 flex flex-col sm:flex-row sm:justify-end gap-2">
-                              <button
-                                onClick={() => {
-                                  setEditingRecord(row);
-                                  setShowAddModal(true);
-                                }}
-                                className="flex items-center justify-center gap-2 rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                                Editar
-                              </button>
-                              <button
-                                onClick={() => handleDeleteRecord(row._id)}
-                                className="flex items-center justify-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Eliminar
-                              </button>
-                            </div>
+                            {user?.role !== 'advisor' && (
+                              <div className="mt-4 flex flex-col sm:flex-row sm:justify-end gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingRecord(row);
+                                    setShowAddModal(true);
+                                  }}
+                                  className="flex items-center justify-center gap-2 rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRecord(row._id)}
+                                  className="flex items-center justify-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Eliminar
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -512,9 +516,11 @@ export default function MisDatos() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   Asesor
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Acciones
-                                </th>
+                                {user?.role !== 'advisor' && (
+                                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Acciones
+                                  </th>
+                                )}
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -596,24 +602,26 @@ export default function MisDatos() {
                                   </td>
 
                                   {/* Columna de Acciones */}
-                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div className="flex items-center justify-end space-x-2">
-                                      <button
-                                        onClick={() => {
-                                          setEditingRecord(row);
-                                          setShowAddModal(true);
-                                        }}
-                                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                                      >
-                                        <Edit2 className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteRecord(row._id)}
-                                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50">
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </td>
+                                  {user?.role !== 'advisor' && (
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                      <div className="flex items-center justify-end space-x-2">
+                                        <button
+                                          onClick={() => {
+                                            setEditingRecord(row);
+                                            setShowAddModal(true);
+                                          }}
+                                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                        >
+                                          <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteRecord(row._id)}
+                                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50">
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  )}
                                 </tr>
                               ))}
                             </tbody>

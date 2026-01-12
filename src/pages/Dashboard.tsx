@@ -9,6 +9,7 @@ import { useTagService } from '../hooks/useTagService';
 import { TagBadge } from '../components/tags/TagBadge';
 import { TagSelector } from '../components/tags/TagSelector';
 import { TagManagerModal } from '../components/tags/TagManagerModal';
+import { AssignAdvisorModal } from '../components/advisors/AssignAdvisorModal';
 import { toast } from 'sonner';
 import {
   Bot,
@@ -46,6 +47,7 @@ export default function Dashboard() {
   const [isMobile, setIsMobile] = React.useState(false);
   const [showMobileChatList, setShowMobileChatList] = React.useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+  const [isAssignAdvisorModalOpen, setIsAssignAdvisorModalOpen] = useState(false);
   const [selectedTagFilter, setSelectedTagFilter] = React.useState<string | null>(null);
 
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -483,8 +485,19 @@ export default function Dashboard() {
                     selectedTags={activeChat.tags || []}
                     onTagAdd={(tagName) => handleAddTag(activeChat.chatId, tagName)}
                     onTagRemove={(tagName) => handleRemoveTag(activeChat.chatId, tagName)}
-                    onCreateTag={() => setIsTagManagerOpen(true)}
+                    {...(user?.role !== 'advisor' && { onCreateTag: () => setIsTagManagerOpen(true) })}
                   />
+
+                  {/* Assign Advisor Button */}
+                  {(user?.role === 'client' || user?.role === 'admin') && (
+                    <button
+                      onClick={() => setIsAssignAdvisorModalOpen(true)}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      Asignar Asesor
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-3 w-full lg:w-auto">
@@ -650,6 +663,27 @@ export default function Dashboard() {
           refreshChats(); // Actualizar chats para ver nuevo color
         }}
       />
+
+      {/* Assign Advisor Modal */}
+      {activeChat && (
+        <AssignAdvisorModal
+          isOpen={isAssignAdvisorModalOpen}
+          onClose={() => setIsAssignAdvisorModalOpen(false)}
+          chatId={activeChat.chatId}
+          currentAdvisorId={activeChat.assignedAdvisorId}
+          currentAdvisorName={activeChat.assignedAdvisorName}
+          onAssignmentComplete={(advisorId, advisorName) => {
+            // Update the active chat with new assignment
+            setActiveChat({
+              ...activeChat,
+              assignedAdvisorId: advisorId,
+              assignedAdvisorName: advisorName
+            });
+            // Refresh chats list to show updated assignment
+            refreshChats();
+          }}
+        />
+      )}
     </div>
   );
 }
