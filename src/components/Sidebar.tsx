@@ -46,6 +46,8 @@ export default function Sidebar() {
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
         { path: '/campaigns', icon: Mail, label: 'Campañas' },
+        { path: '/asesores', icon: Users, label: 'Asesores' },
+        { path: '/advisor-metrics', icon: BarChart3, label: 'Métricas de Asesores' },
         { path: '/inscripciones', icon: UserPlus, label: 'Inscripciones' },
         { path: '/meta-eventos', icon: TrendingUp, label: 'Eventos de Meta' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
