@@ -20,9 +20,11 @@ import {
   AlertTriangle,
   RefreshCw,
   ArrowLeft,
-  Settings
+  Settings,
+  FileText
 } from 'lucide-react';
 import { TagFilter } from '@/components/tags/TagFilter';
+import { ChatSummaryModal } from '@/components/summaries/ChatSummaryModal';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -48,6 +50,7 @@ export default function Dashboard() {
   const [showMobileChatList, setShowMobileChatList] = React.useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isAssignAdvisorModalOpen, setIsAssignAdvisorModalOpen] = useState(false);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [selectedTagFilter, setSelectedTagFilter] = React.useState<string | null>(null);
 
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -490,13 +493,24 @@ export default function Dashboard() {
 
                   {/* Assign Advisor Button */}
                   {(user?.role === 'client' || user?.role === 'admin') && (
-                    <button
-                      onClick={() => setIsAssignAdvisorModalOpen(true)}
-                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <User className="w-4 h-4" />
-                      Asignar Asesor
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setIsAssignAdvisorModalOpen(true)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <User className="w-4 h-4" />
+                        Asignar Asesor
+                      </button>
+
+                      {/* Summary Button */}
+                      <button
+                        onClick={() => setIsSummaryModalOpen(true)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Resumen
+                      </button>
+                    </>
                   )}
                 </div>
 
@@ -682,6 +696,16 @@ export default function Dashboard() {
             // Refresh chats list to show updated assignment
             refreshChats();
           }}
+        />
+      )}
+
+      {/* Chat Summary Modal */}
+      {activeChat && (
+        <ChatSummaryModal
+          isOpen={isSummaryModalOpen}
+          onClose={() => setIsSummaryModalOpen(false)}
+          chatId={activeChat.chatId}
+          chatName={activeChat.contactName || activeChat.phoneNumber}
         />
       )}
     </div>
