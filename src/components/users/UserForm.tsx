@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { CreateUserData, UpdateUserData } from '../../services/userService';
 import { Loader2 } from 'lucide-react';
-import { Button } from "@/components/ui/button"; 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; 
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface UserFormProps {
   onSubmit: (userData: CreateUserData | UpdateUserData) => Promise<void>;
   isSaving: boolean;
-  onCancel: () => void; 
-  initialData?: Partial<CreateUserData>; 
-  mode?: 'create' | 'edit'; 
+  onCancel: () => void;
+  initialData?: Partial<CreateUserData>;
+  mode?: 'create' | 'edit';
 }
 
 const initialFormData: CreateUserData = {
@@ -22,6 +22,7 @@ const initialFormData: CreateUserData = {
   clientId: '',
   workflowId: '',
   whatsappToken: '',
+  wabaId: '',
 };
 
 export default function UserForm({
@@ -39,7 +40,7 @@ export default function UserForm({
       setFormData(prev => ({
         ...prev,
         ...initialData,
-        password: '', 
+        password: '',
       }));
     }
   }, [initialData]);
@@ -76,11 +77,12 @@ export default function UserForm({
       clientId: formData.role === 'client' ? formData.clientId : '',
       workflowId: formData.workflowId || '',
       whatsappToken: formData.whatsappToken || '',
+      wabaId: formData.wabaId || '',
     };
 
     try {
       await onSubmit(dataToSubmit);
-      if (mode === 'create') setFormData(initialFormData); 
+      if (mode === 'create') setFormData(initialFormData);
     } catch (error: any) {
       setFormError(error.message || "Ocurrió un error al guardar.");
     }
@@ -205,6 +207,23 @@ export default function UserForm({
           disabled={isSaving}
           placeholder="Token de WhatsApp (si aplica)"
         />
+      </div>
+
+      {/* WABA ID */}
+      <div className="space-y-1.5">
+        <Label htmlFor="wabaId">WABA ID (Opcional)</Label>
+        <Input
+          id="wabaId"
+          name="wabaId"
+          type="text"
+          value={formData.wabaId}
+          onChange={handleChange}
+          disabled={isSaving}
+          placeholder="WhatsApp Business Account ID"
+        />
+        <p className="text-xs text-gray-500">
+          ID de la cuenta de WhatsApp Business (necesario para gestionar plantillas)
+        </p>
       </div>
 
       {/* Submit */}

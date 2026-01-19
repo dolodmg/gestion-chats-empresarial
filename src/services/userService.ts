@@ -9,16 +9,18 @@ export interface CreateUserData {
   clientId?: string;
   workflowId?: string;
   whatsappToken?: string;
+  wabaId?: string;
 }
 
 export interface UpdateUserData {
-    name?: string;
-    email?: string;
-    password?: string; 
-    role?: 'admin' | 'client';
-    clientId?: string;
-    workflowId?: string;
-    whatsappToken?: string;
+  name?: string;
+  email?: string;
+  password?: string;
+  role?: 'admin' | 'client';
+  clientId?: string;
+  workflowId?: string;
+  whatsappToken?: string;
+  wabaId?: string;
 }
 
 export const userService = {

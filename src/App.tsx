@@ -15,6 +15,7 @@ import MetaEventos from './pages/MetaEventos';
 import Asesores from './pages/Asesores';
 import AdvisorMetrics from './pages/AdvisorMetrics';
 import Campaigns from './pages/Campaigns';
+import Templates from './pages/Templates';
 import { Toaster } from "@/components/ui/sonner";
 
 function AppRoutes() {
@@ -117,6 +118,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Campaigns />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/templates"
+        element={
+          <ProtectedRoute excludeRole="advisor">
+            <Templates />
           </ProtectedRoute>
         }
       />

@@ -14,7 +14,8 @@ import {
   X,
   TrendingUp,
   BarChart3,
-  Mail
+  Mail,
+  FileText
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -46,6 +47,7 @@ export default function Sidebar() {
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
         { path: '/campaigns', icon: Mail, label: 'Campañas' },
+        { path: '/templates', icon: FileText, label: 'Plantillas de Mensajes' },
         { path: '/asesores', icon: Users, label: 'Asesores' },
         { path: '/advisor-metrics', icon: BarChart3, label: 'Métricas de Asesores' },
         { path: '/inscripciones', icon: UserPlus, label: 'Inscripciones' },
@@ -58,6 +60,7 @@ export default function Sidebar() {
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/data', icon: Database, label: 'Mis Datos' },
         { path: '/campaigns', icon: Mail, label: 'Campañas' },
+        { path: '/templates', icon: FileText, label: 'Plantillas de Mensajes' },
         { path: '/asesores', icon: Users, label: 'Asesores' },
         { path: '/advisor-metrics', icon: BarChart3, label: 'Métricas de Asesores' },
         { path: '/meta-eventos', icon: TrendingUp, label: 'Eventos de Meta' },

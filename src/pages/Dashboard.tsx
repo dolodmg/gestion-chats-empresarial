@@ -21,10 +21,12 @@ import {
   RefreshCw,
   ArrowLeft,
   Settings,
-  FileText
+  FileText,
+  MessageSquareText
 } from 'lucide-react';
 import { TagFilter } from '@/components/tags/TagFilter';
 import { ChatSummaryModal } from '@/components/summaries/ChatSummaryModal';
+import { SendTemplateModal } from '@/components/templates/SendTemplateModal';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -50,6 +52,7 @@ export default function Dashboard() {
   const [showMobileChatList, setShowMobileChatList] = React.useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isAssignAdvisorModalOpen, setIsAssignAdvisorModalOpen] = useState(false);
+  const [isSendTemplateModalOpen, setIsSendTemplateModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [selectedTagFilter, setSelectedTagFilter] = React.useState<string | null>(null);
 
@@ -502,6 +505,15 @@ export default function Dashboard() {
                         Asignar Asesor
                       </button>
 
+                      {/* Send Template Button */}
+                      <button
+                        onClick={() => setIsSendTemplateModalOpen(true)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <MessageSquareText className="w-4 h-4" />
+                        Enviar Plantilla
+                      </button>
+
                       {/* Summary Button */}
                       <button
                         onClick={() => setIsSummaryModalOpen(true)}
@@ -706,6 +718,24 @@ export default function Dashboard() {
           onClose={() => setIsSummaryModalOpen(false)}
           chatId={activeChat.chatId}
           chatName={activeChat.contactName || activeChat.phoneNumber}
+        />
+      )}
+
+      {/* Send Template Modal */}
+      {activeChat && (
+        <SendTemplateModal
+          isOpen={isSendTemplateModalOpen}
+          onClose={() => setIsSendTemplateModalOpen(false)}
+          chatId={activeChat.chatId}
+          chatName={activeChat.contactName || activeChat.phoneNumber}
+          onTemplateSent={async () => {
+            // Refresh chats to show updated status
+            await refreshChats();
+            // Trigger message reload by re-setting active chat
+            if (activeChat) {
+              setActiveChat({ ...activeChat });
+            }
+          }}
         />
       )}
     </div>
