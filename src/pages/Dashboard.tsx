@@ -22,11 +22,13 @@ import {
   ArrowLeft,
   Settings,
   FileText,
-  MessageSquareText
+  MessageSquareText,
+  Download
 } from 'lucide-react';
 import { TagFilter } from '@/components/tags/TagFilter';
 import { ChatSummaryModal } from '@/components/summaries/ChatSummaryModal';
 import { SendTemplateModal } from '@/components/templates/SendTemplateModal';
+import { ExportChatsModal } from '@/components/chats/ExportChatsModal';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -54,6 +56,7 @@ export default function Dashboard() {
   const [isAssignAdvisorModalOpen, setIsAssignAdvisorModalOpen] = useState(false);
   const [isSendTemplateModalOpen, setIsSendTemplateModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedTagFilter, setSelectedTagFilter] = React.useState<string | null>(null);
 
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -125,6 +128,13 @@ export default function Dashboard() {
       toast.error('Error', { description: error.message });
     }
   };
+
+  const handleChatSelect = (chat: any) => {
+    setActiveChat(chat);
+    if (isMobile) setShowMobileChatList(false);
+  };
+
+
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,13 +233,6 @@ export default function Dashboard() {
     scrollMessagesToBottom();
   }, [messages, activeChat?.chatId, showMobileChatList, scrollMessagesToBottom]);
 
-  const handleChatSelect = (chat: typeof chats[number]) => {
-    setActiveChat(chat);
-    if (isMobile) {
-      setShowMobileChatList(false);
-    }
-  };
-
   const sortedChats = React.useMemo(() => {
     return [...chats].sort((a, b) => {
       if (!a.lastMessageTimestamp && !b.lastMessageTimestamp) return 0;
@@ -300,6 +303,13 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold text-gray-900">Conversaciones</h2>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                title="Exportar chats"
+              >
+                <Download className="w-5 h-5" />
+              </button>
               <button
                 onClick={() => setIsTagManagerOpen(true)}
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
@@ -738,6 +748,15 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Export Chats Modal */}
+      <ExportChatsModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExportComplete={() => {
+          // Just close modal, no selection to clear
+        }}
+      />
     </div>
   );
 }
