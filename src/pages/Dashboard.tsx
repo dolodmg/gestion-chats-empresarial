@@ -741,9 +741,13 @@ export default function Dashboard() {
           onTemplateSent={async () => {
             // Refresh chats to show updated status
             await refreshChats();
-            // Trigger message reload by re-setting active chat
+            // Update active chat status to 'human'
             if (activeChat) {
-              setActiveChat({ ...activeChat });
+              setActiveChat({
+                ...activeChat,
+                chatStatus: 'human',
+                statusChangeTime: new Date().toISOString()
+              });
             }
           }}
         />
