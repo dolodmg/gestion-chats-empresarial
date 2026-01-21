@@ -20,15 +20,17 @@ import {
   AlertTriangle,
   RefreshCw,
   ArrowLeft,
-  Settings,
+  Tag,
   FileText,
   MessageSquareText,
-  Download
+  Download,
+  Search
 } from 'lucide-react';
 import { TagFilter } from '@/components/tags/TagFilter';
 import { ChatSummaryModal } from '@/components/summaries/ChatSummaryModal';
 import { SendTemplateModal } from '@/components/templates/SendTemplateModal';
 import { ExportChatsModal } from '@/components/chats/ExportChatsModal';
+import { ChatSearchBar } from '@/components/chats/ChatSearchBar';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -45,7 +47,12 @@ export default function Dashboard() {
     refreshChats,
     loadMoreChats,
     hasMore,
-    isLoadingMore
+    isLoadingMore,
+    searchChats,
+    clearSearch,
+    isSearching,
+    searchResults,
+    isSearchActive
   } = useChat();
   const tagService = useTagService();
 
@@ -279,6 +286,16 @@ export default function Dashboard() {
     );
   }, [sortedChats, selectedTagFilter]);
 
+  // Determine which chats to display
+  const displayChats = React.useMemo(() => {
+    if (isSearchActive) {
+      // When searching, show search results
+      return searchResults;
+    }
+    // Otherwise show filtered chats (by tag)
+    return filteredChats;
+  }, [isSearchActive, searchResults, filteredChats]);
+
   const handleScroll = () => {
     const target = listRef.current;
     if (target) {
@@ -315,7 +332,7 @@ export default function Dashboard() {
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
                 title="Configurar tags"
               >
-                <Settings className="w-5 h-5" />
+                <Tag className="w-5 h-5" />
               </button>
               <button
                 onClick={refreshChats}
@@ -328,6 +345,13 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Search Bar */}
+        <ChatSearchBar
+          onSearch={searchChats}
+          onClear={clearSearch}
+          isSearching={isSearching}
+        />
 
         {/* Tag Filter */}
         <TagFilter
@@ -349,12 +373,21 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Show search status */}
+          {isSearchActive && (
+            <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+              <p className="text-sm text-blue-700">
+                {isSearching ? 'Buscando...' : `${displayChats.length} resultado${displayChats.length !== 1 ? 's' : ''} encontrado${displayChats.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+          )}
+
           {isLoading && chats.length === 0 ? (
             <div className="flex items-center justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : (
-            filteredChats.map((chat) => (
+            displayChats.map((chat) => (
               <button
                 key={chat.chatId}
                 onClick={() => handleChatSelect(chat)}
@@ -441,13 +474,24 @@ export default function Dashboard() {
             </div>
           )}
 
-          {!isLoadingMore && !hasMore && chats.length > 0 && (
+          {/* Show message when search has no results */}
+          {isSearchActive && !isSearching && displayChats.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron resultados</h3>
+              <p className="text-gray-600">Intenta con otro término de búsqueda</p>
+            </div>
+          )}
+
+          {!isLoadingMore && !hasMore && chats.length > 0 && !isSearchActive && (
             <div className="text-center py-6">
               <p className="text-sm text-gray-500">Fin de las conversaciones</p>
             </div>
           )}
 
-          {!isLoading && chats.length === 0 && (
+          {!isLoading && chats.length === 0 && !isSearchActive && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <MoreHorizontal className="w-8 h-8 text-gray-400" />

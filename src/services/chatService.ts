@@ -83,6 +83,22 @@ export const chatService = {
     }
   },
 
+  async searchChats(query: string, clientId?: string): Promise<Chat[]> {
+    try {
+      const params: any = { query };
+      if (clientId) {
+        params.clientId = clientId;
+      }
+      const response = await api.get('/chats/search', { params });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return [];
+      }
+      throw error;
+    }
+  },
+
   async assignChatToAdvisor(chatId: string, advisorId: string | null): Promise<Chat> {
     const response = await api.put(`/chats/${chatId}/assign-advisor`, { advisorId });
     return response.data.chat;

@@ -20,6 +20,11 @@ interface ChatContextType {
   hasMore: boolean;
   isLoadingMore: boolean;
   navigateToChatByPhone: (phoneNumber: string) => Promise<boolean>;
+  searchChats: (query: string) => void;
+  clearSearch: () => void;
+  isSearching: boolean;
+  searchResults: Chat[];
+  isSearchActive: boolean;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -44,6 +49,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Search state
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Chat[]>([]);
+  const [isSearchActive, setIsSearchActive] = useState(false);
 
   const refreshChats = useCallback(async () => {
     if (!user) return;
@@ -402,6 +412,37 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  // Search chats function
+  const searchChats = useCallback(async (query: string) => {
+    if (!user || query.trim().length === 0) {
+      setSearchResults([]);
+      setIsSearchActive(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setIsSearchActive(true);
+    setError(null);
+
+    try {
+      const clientId = user.role === 'admin' ? undefined : user.clientId;
+      const results = await chatService.searchChats(query, clientId);
+      setSearchResults(results);
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Error al buscar chats');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [user]);
+
+  // Clear search function
+  const clearSearch = useCallback(() => {
+    setSearchResults([]);
+    setIsSearchActive(false);
+    setIsSearching(false);
+  }, []);
+
   return (
     <ChatContext.Provider value={{
       chats,
@@ -417,7 +458,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       loadMoreChats,
       hasMore,
       isLoadingMore,
-      navigateToChatByPhone
+      navigateToChatByPhone,
+      searchChats,
+      clearSearch,
+      isSearching,
+      searchResults,
+      isSearchActive
     }}>
       {children}
     </ChatContext.Provider>
