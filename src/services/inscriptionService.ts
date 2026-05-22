@@ -17,6 +17,7 @@ export interface InscriptionFilters {
   dni?: string;
   provincia?: string;
   curso?: string;
+  cicloLectivo?: string;
   page?: number;
   limit?: number;
 }

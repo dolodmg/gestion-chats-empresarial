@@ -45,6 +45,7 @@ export default function Inscripciones() {
   const [searchTerm, setSearchTerm] = useState('');
   const [provinciaFilter, setProvinciaFilter] = useState('todas');
   const [cursoFilter, setCursoFilter] = useState('todos');
+  const [cicloLectivoFilter, setCicloLectivoFilter] = useState('todos');
 
   const [pagination, setPagination] = useState({
     page: 1,
@@ -53,7 +54,7 @@ export default function Inscripciones() {
     totalPages: 0
   });
 
-  const hasActiveFilters = searchTerm.trim() !== '' || provinciaFilter !== 'todas' || cursoFilter !== 'todos';
+  const hasActiveFilters = searchTerm.trim() !== '' || provinciaFilter !== 'todas' || cursoFilter !== 'todos' || cicloLectivoFilter !== 'todos';
 
   useEffect(() => {
     const loadCourses = async () => {
@@ -71,7 +72,7 @@ export default function Inscripciones() {
 
   useEffect(() => {
     fetchInscriptions();
-  }, [pagination.page, pagination.limit, searchTerm, provinciaFilter, cursoFilter]);
+  }, [pagination.page, pagination.limit, searchTerm, provinciaFilter, cursoFilter, cicloLectivoFilter]);
 
   const fetchInscriptions = async () => {
     setIsLoadingData(true);
@@ -84,6 +85,7 @@ export default function Inscripciones() {
       if (searchTerm.trim()) filters.dni = searchTerm.trim();
       if (provinciaFilter && provinciaFilter !== 'todas') filters.provincia = provinciaFilter;
       if (cursoFilter && cursoFilter !== 'todos') filters.curso = cursoFilter;
+      if (cicloLectivoFilter && cicloLectivoFilter !== 'todos') filters.cicloLectivo = cicloLectivoFilter;
 
       const result = await inscriptionService.getInscriptions(filters);
 
@@ -133,6 +135,7 @@ export default function Inscripciones() {
     setSearchTerm('');
     setProvinciaFilter('todas');
     setCursoFilter('todos');
+    setCicloLectivoFilter('todos');
     setPagination({ ...pagination, page: 1 });
   };
 
@@ -142,6 +145,7 @@ export default function Inscripciones() {
     if (searchTerm.trim()) filters.dni = searchTerm.trim();
     if (provinciaFilter && provinciaFilter !== 'todas') filters.provincia = provinciaFilter;
     if (cursoFilter && cursoFilter !== 'todos') filters.curso = cursoFilter;
+    if (cicloLectivoFilter && cicloLectivoFilter !== 'todos') filters.cicloLectivo = cicloLectivoFilter;
 
     return await inscriptionService.exportToCSV(filters);
   };
@@ -154,6 +158,9 @@ export default function Inscripciones() {
     }
     if (cursoFilter && cursoFilter !== 'todos') {
       parts.push(cursoFilter.replace(/\s+/g, '_'));
+    }
+    if (cicloLectivoFilter && cicloLectivoFilter !== 'todos') {
+      parts.push(`ciclo_${cicloLectivoFilter}`);
     }
     if (searchTerm.trim()) {
       parts.push(`dni_${searchTerm.trim()}`);
@@ -244,7 +251,7 @@ export default function Inscripciones() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Buscar por DNI</label>
               <div className="relative">
@@ -296,6 +303,22 @@ export default function Inscripciones() {
                     {course.name} ({course.count})
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ciclo Lectivo</label>
+              <select
+                value={cicloLectivoFilter}
+                onChange={(e) => {
+                  setCicloLectivoFilter(e.target.value);
+                  setPagination({ ...pagination, page: 1 });
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="todos">Todos</option>
+                <option value="2026">Ciclo 2026</option>
+                <option value="2025">Ciclo 2025</option>
               </select>
             </div>
 

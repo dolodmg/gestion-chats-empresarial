@@ -1,132 +1,105 @@
 import { useEffect, useState } from 'react';
-import { MessageCircle, TrendingUp, Settings, BarChart3, Edit, Trash2, History, Save, X, RefreshCw, CheckCircle } from 'lucide-react';
+import { MessageCircle, TrendingUp, BarChart3, Trash2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { assistantService, AssistantPromptRecord, GetPromptResponse, AnalyticsStats, ImprovementSuggestion } from '../services/assistantService';
+import { assistantService, AnalyticsStats, ImprovementSuggestion } from '../services/assistantService';
 import { faqService, FAQ, FAQStats } from '../services/faqService';
 import AnalyticsTab from '../components/AnalyticsTab';
 import ImprovementsTab from '../components/ImprovementsTab';
 
 export default function AsistenteIA() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('config');
-
-  // Estado del prompt actual
-  const [isLoading, setIsLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('faqs');
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [promptText, setPromptText] = useState('');
-  const [description, setDescription] = useState('');
-  const [version, setVersion] = useState<number | null>(null);
-  const [workflowId, setWorkflowId] = useState<string | undefined>(undefined);
-  const [nodeId, setNodeId] = useState<string | undefined>(undefined);
-  const [lastUpdated, setLastUpdated] = useState<string | undefined>(undefined);
 
-  // Historial
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [history, setHistory] = useState<AssistantPromptRecord[]>([]);
-  const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState<{ page: number; limit: number; total: number; totalPages: number } | null>(null);
+  /*
+   * Sección de configuración/prompt preservada para futuro.
+   * No debe mostrarse ni ser accesible en UI por decisión de producto actual.
+   *
+   * Código previo:
+   * const [isLoading, setIsLoading] = useState(false);
+   * const [saving, setSaving] = useState(false);
+   * const [promptText, setPromptText] = useState('');
+   * const [description, setDescription] = useState('');
+   * const [version, setVersion] = useState<number | null>(null);
+   * const [workflowId, setWorkflowId] = useState<string | undefined>(undefined);
+   * const [nodeId, setNodeId] = useState<string | undefined>(undefined);
+   * const [lastUpdated, setLastUpdated] = useState<string | undefined>(undefined);
+   * const [showHistoryModal, setShowHistoryModal] = useState(false);
+   * const [history, setHistory] = useState<AssistantPromptRecord[]>([]);
+   * const [page, setPage] = useState(1);
+   * const [pagination, setPagination] = useState<{ page: number; limit: number; total: number; totalPages: number } | null>(null);
+   *
+   * const loadPrompt = async () => { ...assistantService.getPrompt(...)... };
+   * const handleSave = async () => { ...assistantService.updatePrompt(...)... };
+   * const loadHistory = async (newPage = 1) => { ...assistantService.getHistory(...)... };
+   * const handleRestore = async (id: string) => { ...assistantService.restorePrompt(...)... };
+   *
+   * useEffect(() => {
+   *   loadPrompt();
+   * }, [user]);
+   *
+   * tabs:
+   * { id: 'config', label: 'Configuración', icon: Settings }
+   *
+   * UI eliminada temporalmente:
+   * - Tab "Configuración"
+   * - Editor de prompt
+   * - Historial de prompts
+   * - Restauración de versiones
+   */
 
-  // FAQs
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [faqsLoading, setFaqsLoading] = useState(false);
   const [analyzingFAQs, setAnalyzingFAQs] = useState(false);
   const [faqStats, setFaqStats] = useState<FAQStats | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories] = useState<string[]>([]);
-  const [editingFAQ, setEditingFAQ] = useState<string | null>(null);
-  const [editCustomResponse, setEditCustomResponse] = useState('');
+  const [expandedFaqs, setExpandedFaqs] = useState<Record<string, boolean>>({});
+  /*
+   * Edición de respuesta personalizada preservada para futuro.
+   *
+   * Código previo:
+   * const [editingFAQ, setEditingFAQ] = useState<string | null>(null);
+   * const [editCustomResponse, setEditCustomResponse] = useState('');
+   *
+   * const handleUpdateFAQ = async (id: string, updates: any) => {
+   *   await faqService.updateFAQ(id, updates);
+   *   setStatus('FAQ actualizada correctamente');
+   *   await loadFAQs();
+   *   setEditingFAQ(null);
+   * };
+   *
+   * UI eliminada temporalmente:
+   * - textarea para customResponse
+   * - botones Guardar/Cancelar
+   * - botón Editar respuesta
+   * - render de faq.customResponse
+   */
 
-  // Analytics
   const [analytics, setAnalytics] = useState<AnalyticsStats | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
-  // Improvements
   const [improvements, setImprovements] = useState<ImprovementSuggestion[]>([]);
   const [improvementsLoading, setImprovementsLoading] = useState(false);
   const [generatingImprovements, setGeneratingImprovements] = useState(false);
 
   const currentClientId = user?.role === 'admin' ? undefined : user?.clientId;
 
-  const loadPrompt = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    setError(null);
-    setStatus(null);
-    try {
-      const data: GetPromptResponse = await assistantService.getPrompt(currentClientId);
-      setPromptText(data.prompt || '');
-      setVersion(data.version ?? null);
-      setWorkflowId(data.workflowId);
-      setNodeId(data.nodeId);
-      setLastUpdated(data.lastUpdated);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Error al cargar el prompt');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!promptText.trim()) {
-      setError('El prompt no puede estar vacío');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    setStatus(null);
-    try {
-      const res = await assistantService.updatePrompt({ prompt: promptText, description }, currentClientId);
-      setStatus(`Guardado correctamente. Versión ${res.version}`);
-      setVersion(res.version);
-      setLastUpdated(res.updatedAt);
-      setDescription('');
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Error al guardar el prompt');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const loadHistory = async (newPage = 1) => {
-    setError(null);
-    try {
-      const res = await assistantService.getHistory(newPage, 10, currentClientId);
-      setHistory(res.prompts);
-      setPagination(res.pagination);
-      setPage(newPage);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Error al cargar el historial');
-    }
-  };
-
-  const handleRestore = async (id: string) => {
-    setError(null);
-    try {
-      await assistantService.restorePrompt(id, currentClientId);
-      await loadPrompt();
-      await loadHistory(page);
-      setStatus('Versión restaurada correctamente');
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Error al restaurar el prompt');
-    }
-  };
-
-  // Funciones para FAQs
   const loadFAQs = async () => {
     setFaqsLoading(true);
     setError(null);
+
     try {
       const response = await faqService.getFAQs(currentClientId, {
         category: selectedCategory === 'all' ? undefined : selectedCategory,
         status: 'active',
         limit: 50
       });
+
       setFaqs(response.faqs);
       setCategories(response.categories);
 
-      // Cargar stats
       const statsResponse = await faqService.getStats(currentClientId);
       setFaqStats(statsResponse.stats);
     } catch (err: any) {
@@ -140,6 +113,7 @@ export default function AsistenteIA() {
     setAnalyzingFAQs(true);
     setError(null);
     setStatus(null);
+
     try {
       const response = await faqService.analyzeFAQs(currentClientId);
       setStatus(`Análisis completado: ${response.stats.faqsGenerated} preguntas generadas de ${response.stats.messagesAnalyzed} mensajes`);
@@ -148,17 +122,6 @@ export default function AsistenteIA() {
       setError(err.response?.data?.error || err.message || 'Error al analizar FAQs');
     } finally {
       setAnalyzingFAQs(false);
-    }
-  };
-
-  const handleUpdateFAQ = async (id: string, updates: any) => {
-    try {
-      await faqService.updateFAQ(id, updates);
-      setStatus('FAQ actualizada correctamente');
-      await loadFAQs();
-      setEditingFAQ(null);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Error al actualizar FAQ');
     }
   };
 
@@ -174,26 +137,17 @@ export default function AsistenteIA() {
     }
   };
 
-  useEffect(() => {
-    loadPrompt();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  const toggleFaqDetails = (id: string) => {
+    setExpandedFaqs((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
-  useEffect(() => {
-    if (activeTab === 'faqs') {
-      loadFAQs();
-    } else if (activeTab === 'analytics') {
-      loadAnalytics();
-    } else if (activeTab === 'improvements') {
-      loadImprovements();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, selectedCategory]);
-
-  // Funciones para Analytics
   const loadAnalytics = async () => {
     setAnalyticsLoading(true);
     setError(null);
+
     try {
       const response = await assistantService.getAnalytics(currentClientId);
       setAnalytics(response.stats);
@@ -204,10 +158,10 @@ export default function AsistenteIA() {
     }
   };
 
-  // Funciones para Improvements
   const loadImprovements = async () => {
     setImprovementsLoading(true);
     setError(null);
+
     try {
       const response = await assistantService.getImprovements(currentClientId);
       setImprovements(response.suggestions);
@@ -222,6 +176,7 @@ export default function AsistenteIA() {
     setGeneratingImprovements(true);
     setError(null);
     setStatus(null);
+
     try {
       const response = await assistantService.generateImprovements(currentClientId);
       setStatus(`Análisis completado: ${response.count} sugerencias generadas`);
@@ -233,8 +188,18 @@ export default function AsistenteIA() {
     }
   };
 
+  useEffect(() => {
+    if (activeTab === 'faqs') {
+      loadFAQs();
+    } else if (activeTab === 'analytics') {
+      loadAnalytics();
+    } else if (activeTab === 'improvements') {
+      loadImprovements();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedCategory]);
+
   const tabs = [
-    { id: 'config', label: 'Configuración', icon: Settings },
     { id: 'faqs', label: 'FAQs', icon: MessageCircle },
     { id: 'analytics', label: 'Análisis', icon: BarChart3 },
     { id: 'improvements', label: 'Mejoras', icon: TrendingUp }
@@ -242,16 +207,14 @@ export default function AsistenteIA() {
 
   return (
     <div className="p-4 sm:p-6">
-      {/* Header */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">Asistente IA</h1>
         <p className="text-sm sm:text-base text-gray-600">Configura y optimiza tu asistente virtual de WhatsApp</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {/* Tabs */}
         <div className="border-b border-gray-200 overflow-x-auto">
-          <nav className="grid grid-cols-2 sm:flex sm:space-x-8 px-4 sm:px-6 min-w-max sm:min-w-0">
+          <nav className="grid grid-cols-3 sm:flex sm:space-x-8 px-4 sm:px-6 min-w-max sm:min-w-0">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -271,93 +234,9 @@ export default function AsistenteIA() {
           </nav>
         </div>
 
-        {/* Tab Content */}
         <div className="p-4 sm:p-6">
-          {/* Configuración Tab */}
-          {activeTab === 'config' && (
-            <div className="space-y-4 sm:space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                <h3 className="text-base sm:text-lg font-medium text-gray-900">Configuración del Prompt</h3>
-                <button
-                  onClick={() => {
-                    loadHistory(1);
-                    setShowHistoryModal(true);
-                  }}
-                  className="w-full sm:w-auto px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2"
-                >
-                  <History className="w-4 h-4" />
-                  Ver Historial
-                </button>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 text-red-700 border border-red-200 p-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-              {status && (
-                <div className="bg-green-50 text-green-700 border border-green-200 p-3 rounded-lg text-sm">
-                  {status}
-                </div>
-              )}
-
-              {isLoading ? (
-                <div className="text-center py-8 text-gray-500">Cargando...</div>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Prompt del Asistente
-                    </label>
-                    <textarea
-                      value={promptText}
-                      onChange={(e) => setPromptText(e.target.value)}
-                      rows={8}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                      placeholder="Escribe el prompt que guiará el comportamiento del asistente..."
-                    />
-                    <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-gray-500">
-                      <span>
-                        {version !== null ? `Versión actual: ${version}` : 'Sin versión guardada'}
-                      </span>
-                      {lastUpdated && (
-                        <span>Última actualización: {new Date(lastUpdated).toLocaleString()}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Descripción del cambio (opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                      placeholder="Ej: Mejora en saludos iniciales"
-                    />
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
-                    >
-                      <Save className="w-4 h-4" />
-                      {saving ? 'Guardando...' : 'Guardar Cambios'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* FAQs Tab */}
           {activeTab === 'faqs' && (
             <div className="space-y-4 sm:space-y-6">
-              {/* Header con stats */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <h3 className="text-base sm:text-lg font-medium text-gray-900">Preguntas Frecuentes</h3>
@@ -388,7 +267,6 @@ export default function AsistenteIA() {
                 </div>
               )}
 
-              {/* Filtros */}
               {categories.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   <button
@@ -415,7 +293,6 @@ export default function AsistenteIA() {
                 </div>
               )}
 
-              {/* Lista de FAQs */}
               {faqsLoading ? (
                 <div className="text-center py-8 text-gray-500">Cargando FAQs...</div>
               ) : faqs.length === 0 ? (
@@ -432,23 +309,19 @@ export default function AsistenteIA() {
                     <div key={faq._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900 text-sm sm:text-base mb-2">
-                                {faq.canonicalQuestion}
-                              </h4>
-                              <div className="flex flex-wrap items-center gap-2 mt-1">
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                                  {faq.category}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {faq.totalCount} {faq.totalCount === 1 ? 'consulta' : 'consultas'}
-                                </span>
-                              </div>
-                            </div>
+                          <h4 className="font-medium text-gray-900 text-sm sm:text-base mb-2">
+                            {faq.canonicalQuestion}
+                          </h4>
+
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                              {faq.category}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {faq.totalCount} {faq.totalCount === 1 ? 'consulta' : 'consultas'}
+                            </span>
                           </div>
 
-                          {/* Respuesta común del bot */}
                           {faq.commonResponse && (
                             <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700">
                               <p className="text-xs text-gray-500 mb-1">Respuesta del bot:</p>
@@ -456,59 +329,91 @@ export default function AsistenteIA() {
                             </div>
                           )}
 
-                          {/* Respuesta personalizada */}
-                          {editingFAQ === faq._id ? (
+                          {faq.variations.length > 0 && (
                             <div className="mt-3">
-                              <label className="block text-xs text-gray-600 mb-1">
-                                Respuesta personalizada:
-                              </label>
-                              <textarea
-                                value={editCustomResponse}
-                                onChange={(e) => setEditCustomResponse(e.target.value)}
-                                rows={3}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                                placeholder="Escribe una respuesta personalizada..."
-                              />
-                              <div className="flex gap-2 mt-2">
-                                <button
-                                  onClick={() => handleUpdateFAQ(faq._id, { customResponse: editCustomResponse })}
-                                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                                >
-                                  Guardar
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setEditingFAQ(null);
-                                    setEditCustomResponse('');
-                                  }}
-                                  className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                                >
-                                  Cancelar
-                                </button>
+                              <button
+                                type="button"
+                                onClick={() => toggleFaqDetails(faq._id)}
+                                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                              >
+                                {expandedFaqs[faq._id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                Ver consultas relacionadas ({faq.variations.length})
+                              </button>
+
+                              {expandedFaqs[faq._id] && (
+                                <div className="mt-3 space-y-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                                  {faq.variations.map((variation, index) => (
+                                    <div key={`${faq._id}-${index}`} className="rounded-md bg-white p-3 text-sm text-gray-700">
+                                      <p className="font-medium text-gray-900">{variation.question}</p>
+                                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
+                                        <span>{variation.count} {variation.count === 1 ? 'consulta' : 'consultas'}</span>
+                                        <span>Última vez: {new Date(variation.lastSeen).toLocaleString()}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/*
+                            Código original preservado para reactivar después:
+
+                            {editingFAQ === faq._id ? (
+                              <div className="mt-3">
+                                <label className="block text-xs text-gray-600 mb-1">
+                                  Respuesta personalizada:
+                                </label>
+                                <textarea
+                                  value={editCustomResponse}
+                                  onChange={(e) => setEditCustomResponse(e.target.value)}
+                                  rows={3}
+                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Escribe una respuesta personalizada..."
+                                />
+                                <div className="flex gap-2 mt-2">
+                                  <button
+                                    onClick={() => handleUpdateFAQ(faq._id, { customResponse: editCustomResponse })}
+                                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                  >
+                                    Guardar
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setEditingFAQ(null);
+                                      setEditCustomResponse('');
+                                    }}
+                                    className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ) : faq.customResponse ? (
-                            <div className="mt-2 p-2 bg-green-50 rounded text-sm text-gray-700">
-                              <p className="text-xs text-green-600 mb-1 flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3" /> Respuesta personalizada:
-                              </p>
-                              <p>{faq.customResponse}</p>
-                            </div>
-                          ) : null}
+                            ) : faq.customResponse ? (
+                              <div className="mt-2 p-2 bg-green-50 rounded text-sm text-gray-700">
+                                <p className="text-xs text-green-600 mb-1">
+                                  Respuesta personalizada:
+                                </p>
+                                <p>{faq.customResponse}</p>
+                              </div>
+                            ) : null}
+                          */}
                         </div>
 
-                        {/* Acciones */}
                         <div className="flex sm:flex-col items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingFAQ(faq._id);
-                              setEditCustomResponse(faq.customResponse || '');
-                            }}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                            title="Editar respuesta"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
+                          {/*
+                            Código original preservado:
+                            <button
+                              onClick={() => {
+                                setEditingFAQ(faq._id);
+                                setEditCustomResponse(faq.customResponse || '');
+                              }}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                              title="Editar respuesta"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          */}
                           <button
                             onClick={() => handleDeleteFAQ(faq._id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded"
@@ -525,7 +430,6 @@ export default function AsistenteIA() {
             </div>
           )}
 
-          {/* Analytics Tab */}
           {activeTab === 'analytics' && (
             <AnalyticsTab
               analytics={analytics}
@@ -534,7 +438,6 @@ export default function AsistenteIA() {
             />
           )}
 
-          {/* Improvements Tab */}
           {activeTab === 'improvements' && (
             <ImprovementsTab
               improvements={improvements}
@@ -547,113 +450,6 @@ export default function AsistenteIA() {
           )}
         </div>
       </div>
-
-      {/* Modal Historial */}
-      {showHistoryModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">Historial de Prompts</h3>
-              <button
-                type="button"
-                onClick={() => setShowHistoryModal(false)}
-                className="text-gray-500 hover:text-gray-700 p-1"
-                aria-label="Cerrar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <div className="space-y-3">
-                {history.map((item) => (
-                  <div key={item._id} className="border border-gray-200 rounded-lg p-3 sm:p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <span className="text-xs sm:text-sm text-gray-600">Versión</span>
-                          <span className="text-xs sm:text-sm font-medium text-gray-900">{item.version}</span>
-                          {item.isActive && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800">
-                              Activa
-                            </span>
-                          )}
-                        </div>
-                        {item.description && (
-                          <p className="text-xs sm:text-sm text-gray-700 mb-1">{item.description}</p>
-                        )}
-                        <p className="text-xs text-gray-500">
-                          {new Date(item.createdAt).toLocaleString()}
-                          {item.createdBy && ` · ${item.createdBy}`}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleRestore(item._id)}
-                        className="w-full sm:w-auto px-3 py-1.5 text-xs sm:text-sm bg-blue-600 text-white rounded hover:bg-blue-700 whitespace-nowrap"
-                      >
-                        Restaurar
-                      </button>
-                    </div>
-                    <details className="mt-3">
-                      <summary className="text-xs sm:text-sm text-gray-600 cursor-pointer hover:text-gray-900">
-                        Ver prompt
-                      </summary>
-                      <pre className="mt-2 whitespace-pre-wrap break-words text-xs sm:text-sm text-gray-800 bg-gray-50 p-2 rounded">
-                        {item.promptText}
-                      </pre>
-                    </details>
-                  </div>
-                ))}
-                {history.length === 0 && (
-                  <div className="text-center text-gray-500 py-8 text-sm">Sin registros de historial</div>
-                )}
-              </div>
-            </div>
-
-            {pagination && pagination.totalPages > 1 && (
-              <div className="border-t border-gray-200 p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="text-xs sm:text-sm text-gray-700">
-                    Página {pagination.page} de {pagination.totalPages}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      disabled={page <= 1}
-                      onClick={() => loadHistory(1)}
-                      className="px-2 py-1 border border-gray-300 rounded-md text-xs sm:text-sm disabled:opacity-50 hover:bg-gray-50"
-                      title="Primera página"
-                    >
-                      «
-                    </button>
-                    <button
-                      disabled={page <= 1}
-                      onClick={() => loadHistory(page - 1)}
-                      className="px-2 py-1 border border-gray-300 rounded-md text-xs sm:text-sm disabled:opacity-50 hover:bg-gray-50"
-                    >
-                      ‹
-                    </button>
-                    <button
-                      disabled={pagination && page >= pagination.totalPages}
-                      onClick={() => loadHistory(page + 1)}
-                      className="px-2 py-1 border border-gray-300 rounded-md text-xs sm:text-sm disabled:opacity-50 hover:bg-gray-50"
-                    >
-                      ›
-                    </button>
-                    <button
-                      disabled={pagination && page >= pagination.totalPages}
-                      onClick={() => loadHistory(pagination ? pagination.totalPages : page)}
-                      className="px-2 py-1 border border-gray-300 rounded-md text-xs sm:text-sm disabled:opacity-50 hover:bg-gray-50"
-                      title="Última página"
-                    >
-                      »
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

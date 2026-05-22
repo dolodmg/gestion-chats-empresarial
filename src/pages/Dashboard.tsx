@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -24,16 +24,29 @@ import {
   FileText,
   MessageSquareText,
   Download,
-  Search
+  Search,
+  Paperclip,
+  X,
+  Image,
+  FileIcon,
+  Film,
+  Mic,
+  Trash2
 } from 'lucide-react';
 import { TagFilter } from '@/components/tags/TagFilter';
 import { ChatSummaryModal } from '@/components/summaries/ChatSummaryModal';
 import { SendTemplateModal } from '@/components/templates/SendTemplateModal';
 import { ExportChatsModal } from '@/components/chats/ExportChatsModal';
 import { ChatSearchBar } from '@/components/chats/ChatSearchBar';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { chatService } from '../services/chatService';
+import { isFeatureEnabled } from '@/utils/featureFlags';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const canManageAdvisors = isFeatureEnabled(user?.role, 'advisors', user?.featureFlags);
+  const canSendTemplates = isFeatureEnabled(user?.role, 'sendTemplates', user?.featureFlags);
+  const canViewConversationSummary = isFeatureEnabled(user?.role, 'conversationSummary', user?.featureFlags);
   const {
     chats,
     activeChat,
@@ -52,8 +65,11 @@ export default function Dashboard() {
     clearSearch,
     isSearching,
     searchResults,
-    isSearchActive
+    isSearchActive,
+    deleteMessage,
+    deleteChat
   } = useChat();
+  const { sendMediaMessage } = useChat();
   const tagService = useTagService();
 
   const [newMessage, setNewMessage] = React.useState('');
@@ -65,9 +81,16 @@ export default function Dashboard() {
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedTagFilter, setSelectedTagFilter] = React.useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; fileName?: string } | null>(null);
+  const [deleteChatDialog, setDeleteChatDialog] = useState<{ isOpen: boolean; chatId: string }>({ isOpen: false, chatId: '' });
+  const [deleteMessageDialog, setDeleteMessageDialog] = useState<{ isOpen: boolean; messageId: string }>({ isOpen: false, messageId: '' });
 
   const listRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [isSendingFile, setIsSendingFile] = useState(false);
 
   React.useEffect(() => {
     tagService.loadUserTags();
@@ -141,14 +164,132 @@ export default function Dashboard() {
     if (isMobile) setShowMobileChatList(false);
   };
 
-
+  const handleDownloadFile = async (url: string, fileName?: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName || 'descarga';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast.error('Error al descargar el archivo');
+    }
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedFile) {
+      handleSendFileMessage();
+      return;
+    }
     if (newMessage.trim()) {
       sendMessage(newMessage);
       setNewMessage('');
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tamaño (100MB)
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('Archivo demasiado grande', { description: 'El tamaño máximo es 100MB' });
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Crear preview para imágenes
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setFilePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        const file = items[i].getAsFile();
+        if (file) {
+          // Validar tamaño (100MB)
+          if (file.size > 100 * 1024 * 1024) {
+            toast.error('Archivo demasiado grande', { description: 'El tamaño máximo es 100MB' });
+            return;
+          }
+
+          let finalFile = file;
+          // Rename snippet/screenshot image logically
+          if (file.type.startsWith('image/')) {
+            const ext = file.type.split('/')[1] || 'png';
+            finalFile = new File([file], `Imagen_Pegada_${new Date().getTime()}.${ext}`, { type: file.type });
+          }
+
+          setSelectedFile(finalFile);
+
+          // Crear preview para imágenes
+          if (finalFile.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (ev) => setFilePreview(ev.target?.result as string);
+            reader.readAsDataURL(finalFile);
+          } else {
+            setFilePreview(null);
+          }
+
+          e.preventDefault(); // Prevenir que se pegue como texto si es archivo
+          break; // Tomar solo el primer archivo pegado
+        }
+      }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSendFileMessage = async () => {
+    if (!selectedFile) return;
+    setIsSendingFile(true);
+    try {
+      await sendMediaMessage(selectedFile, newMessage.trim() || undefined);
+      setNewMessage('');
+      handleRemoveFile();
+      toast.success('Archivo enviado');
+    } catch {
+      toast.error('Error al enviar archivo');
+    } finally {
+      setIsSendingFile(false);
+    }
+  };
+
+  const getMediaTypeIcon = (mediaType: string | null | undefined) => {
+    switch (mediaType) {
+      case 'image': return <Image className="w-4 h-4" />;
+      case 'video': return <Film className="w-4 h-4" />;
+      case 'audio': return <Mic className="w-4 h-4" />;
+      case 'document': return <FileIcon className="w-4 h-4" />;
+      default: return <FileIcon className="w-4 h-4" />;
+    }
+  };
+
+  const getFileTypeLabel = (file: File): string => {
+    if (file.type.startsWith('image/')) return 'Imagen';
+    if (file.type.startsWith('video/')) return 'Video';
+    if (file.type.startsWith('audio/')) return 'Audio';
+    return 'Documento';
   };
 
   const formatTime = (timestamp: string) => {
@@ -391,7 +532,7 @@ export default function Dashboard() {
               <button
                 key={chat.chatId}
                 onClick={() => handleChatSelect(chat)}
-                className={`w-full text-left p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 ${activeChat?.chatId === chat.chatId ? 'bg-blue-50' : ''
+                className={`group w-full text-left p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 ${activeChat?.chatId === chat.chatId ? 'bg-blue-50' : ''
                   }`}
               >
                 <div className="flex items-start space-x-3">
@@ -405,9 +546,23 @@ export default function Dashboard() {
                       <h3 className="font-medium text-gray-900 truncate">
                         {chat.contactName || chat.phoneNumber}
                       </h3>
-                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                        {formatChatDate(chat.lastMessageTimestamp)}
-                      </span>
+                      <div className="flex items-center ml-2 flex-shrink-0 h-5">
+                        <span className="text-xs text-gray-500 transition-transform duration-200 group-hover:-translate-x-1">
+                          {formatChatDate(chat.lastMessageTimestamp)}
+                        </span>
+                        <div className="w-0 opacity-0 group-hover:w-5 group-hover:opacity-100 transition-all duration-200 flex items-center justify-end overflow-hidden">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteChatDialog({ isOpen: true, chatId: chat.chatId });
+                            }}
+                            className="text-gray-400 hover:text-red-600 flex-shrink-0"
+                            title="Eliminar chat"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2 mb-1">
                       <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -551,31 +706,36 @@ export default function Dashboard() {
                   {/* Assign Advisor Button */}
                   {(user?.role === 'client' || user?.role === 'admin') && (
                     <>
-                      <button
-                        onClick={() => setIsAssignAdvisorModalOpen(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <User className="w-4 h-4" />
-                        Asignar Asesor
-                      </button>
+                      {canManageAdvisors && (
+                        <button
+                          onClick={() => setIsAssignAdvisorModalOpen(true)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <User className="w-4 h-4" />
+                          Asignar Asesor
+                        </button>
+                      )}
 
                       {/* Send Template Button */}
-                      <button
-                        onClick={() => setIsSendTemplateModalOpen(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <MessageSquareText className="w-4 h-4" />
-                        Enviar Plantilla
-                      </button>
+                      {canSendTemplates && (
+                        <button
+                          onClick={() => setIsSendTemplateModalOpen(true)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <MessageSquareText className="w-4 h-4" />
+                          Enviar Plantilla
+                        </button>
+                      )}
 
-                      {/* Summary Button */}
-                      <button
-                        onClick={() => setIsSummaryModalOpen(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Resumen
-                      </button>
+                      {canViewConversationSummary && (
+                        <button
+                          onClick={() => setIsSummaryModalOpen(true)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Resumen
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -636,36 +796,117 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {messageGroups[dateKey].map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.sender === 'bot' ? 'justify-end' : 'justify-start'}`}
-                    >
+                  {messageGroups[dateKey].map((message) => {
+                    const messageId = message.id || message._id || '';
+                    const mediaProxyUrl = messageId ? chatService.getMediaUrl(messageId) : '';
+                    const token = localStorage.getItem('auth_token');
+                    const mediaUrlWithAuth = mediaProxyUrl ? `${mediaProxyUrl}?token=${token}` : '';
+
+                    return (
                       <div
-                        className={`max-w-[70%] px-4 py-2 rounded-lg ${message.sender === 'user'
-                          ? 'bg-gray-100 text-gray-900'
-                          : 'bg-blue-500 text-white'
-                          }`}
+                        key={messageId}
+                        className={`flex ${message.sender === 'bot' ? 'justify-end' : 'justify-start'}`}
                       >
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span
-                            className={`text-xs ${message.sender === 'user'
-                              ? 'text-gray-500'
-                              : 'text-white text-opacity-75'
-                              }`}
-                          >
-                            {formatTime(message.timestamp)}
-                          </span>
-                          {message.sender === 'bot' && (
-                            <span className="text-xs ml-2 text-white text-opacity-75">
-                              Bot
-                            </span>
+                        <div
+                          className={`max-w-[70%] px-4 py-2 rounded-lg relative group ${message.sender === 'user'
+                            ? 'bg-gray-100 text-gray-900'
+                            : 'bg-blue-500 text-white'
+                            }`}
+                        >
+                          {/* Media Content */}
+                          {message.mediaType && message.mediaUrl && (
+                            <div className="mb-2">
+                              {message.mediaType === 'image' && (
+                                <div className="relative group">
+                                  <img
+                                    src={mediaUrlWithAuth}
+                                    alt=""
+                                    className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                    style={{ maxHeight: '300px' }}
+                                    onClick={() => setLightboxImage({ url: mediaUrlWithAuth, fileName: message.fileName || undefined })}
+                                    loading="lazy"
+                                  />
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDownloadFile(mediaUrlWithAuth, message.fileName || 'imagen'); }}
+                                    className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                                    title="Descargar"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                              {message.mediaType === 'video' && (
+                                <video
+                                  controls
+                                  className="max-w-full rounded-lg"
+                                  style={{ maxHeight: '300px' }}
+                                >
+                                  <source src={mediaUrlWithAuth} />
+                                  Tu navegador no soporta video.
+                                </video>
+                              )}
+                              {message.mediaType === 'audio' && (
+                                <audio controls className="w-full min-w-[200px]">
+                                  <source src={mediaUrlWithAuth} />
+                                  Tu navegador no soporta audio.
+                                </audio>
+                              )}
+                              {message.mediaType === 'document' && (
+                                <a
+                                  href={mediaUrlWithAuth}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${message.sender === 'user'
+                                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    }`}
+                                >
+                                  <FileIcon className="w-5 h-5 flex-shrink-0" />
+                                  <span className="truncate text-sm">{message.fileName || 'Documento'}</span>
+                                  <Download className="w-4 h-4 flex-shrink-0 ml-auto" />
+                                </a>
+                              )}
+                            </div>
                           )}
+                          {/* Text Content - hide placeholders when media exists */}
+                          {message.content && !message.mediaUrl && (
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                          )}
+                          {message.content && message.mediaUrl && !['Imagen', 'imagen', 'Image', 'image', 'Audio', 'audio', 'Video', 'video', 'Documento', 'documento'].includes(message.content.trim()) && !message.content.startsWith('📎 ') && (
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                          )}
+                          <div className="flex items-center justify-between mt-1 gap-4">
+                            <div className="flex items-center">
+                              <span
+                                className={`text-xs ${message.sender === 'user'
+                                  ? 'text-gray-500'
+                                  : 'text-white text-opacity-75'
+                                  }`}
+                              >
+                                {formatTime(message.timestamp)}
+                              </span>
+                              {message.sender === 'bot' && (
+                                <span className="text-xs ml-2 text-white text-opacity-75">
+                                  Bot
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteMessageDialog({ isOpen: true, messageId });
+                              }}
+                              className={`p-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ${message.sender === 'user' ? 'text-gray-400 hover:text-red-600' : 'text-white/60 hover:text-white'
+                                }`}
+                              title="Eliminar mensaje"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ))}
             </div>
@@ -673,17 +914,55 @@ export default function Dashboard() {
             {/* Message Input */}
             {activeChat.chatStatus === 'human' ? (
               <div className="p-4 border-t border-gray-200 bg-gray-50">
+                {/* File Preview */}
+                {selectedFile && (
+                  <div className="mb-3 p-3 bg-white border border-gray-200 rounded-lg flex items-center gap-3">
+                    {filePreview ? (
+                      <img src={filePreview} alt="Preview" className="w-12 h-12 object-cover rounded" />
+                    ) : (
+                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                        {getMediaTypeIcon(selectedFile.type.startsWith('image/') ? 'image' : selectedFile.type.startsWith('video/') ? 'video' : selectedFile.type.startsWith('audio/') ? 'audio' : 'document')}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
+                      <p className="text-xs text-gray-500">{getFileTypeLabel(selectedFile)} • {(selectedFile.size / 1024).toFixed(0)} KB</p>
+                    </div>
+                    <button
+                      onClick={handleRemoveFile}
+                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
                 <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                    title="Adjuntar archivo"
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </button>
                   <input
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Escribir mensaje..."
+                    onPaste={handlePaste}
+                    placeholder={selectedFile ? 'Añadir un mensaje (opcional)...' : 'Escribir mensaje...'}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <button
                     type="submit"
-                    disabled={!newMessage.trim()}
+                    disabled={(!newMessage.trim() && !selectedFile) || isSendingFile}
                     className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <Send className="w-5 h-5" />
@@ -745,7 +1024,7 @@ export default function Dashboard() {
       />
 
       {/* Assign Advisor Modal */}
-      {activeChat && (
+      {activeChat && canManageAdvisors && (
         <AssignAdvisorModal
           isOpen={isAssignAdvisorModalOpen}
           onClose={() => setIsAssignAdvisorModalOpen(false)}
@@ -766,7 +1045,7 @@ export default function Dashboard() {
       )}
 
       {/* Chat Summary Modal */}
-      {activeChat && (
+      {activeChat && canViewConversationSummary && (
         <ChatSummaryModal
           isOpen={isSummaryModalOpen}
           onClose={() => setIsSummaryModalOpen(false)}
@@ -776,7 +1055,7 @@ export default function Dashboard() {
       )}
 
       {/* Send Template Modal */}
-      {activeChat && (
+      {activeChat && canSendTemplates && (
         <SendTemplateModal
           isOpen={isSendTemplateModalOpen}
           onClose={() => setIsSendTemplateModalOpen(false)}
@@ -804,6 +1083,64 @@ export default function Dashboard() {
         onExportComplete={() => {
           // Just close modal, no selection to clear
         }}
+      />
+
+      {/* Image Lightbox Modal */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDownloadFile(lightboxImage.url, lightboxImage.fileName || 'imagen'); }}
+            className="absolute top-4 right-16 p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            title="Descargar"
+          >
+            <Download className="w-6 h-6" />
+          </button>
+          <img
+            src={lightboxImage.url}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      {/* Confirm Delete Chat Dialog */}
+      <ConfirmDialog
+        isOpen={deleteChatDialog.isOpen}
+        onClose={() => setDeleteChatDialog({ isOpen: false, chatId: '' })}
+        onConfirm={() => {
+          if (deleteChatDialog.chatId) {
+            deleteChat(deleteChatDialog.chatId);
+          }
+        }}
+        title="Eliminar Chat"
+        message="¿Estás seguro de que quieres eliminar este chat y todos sus mensajes? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        variant="danger"
+      />
+
+      {/* Confirm Delete Message Dialog */}
+      <ConfirmDialog
+        isOpen={deleteMessageDialog.isOpen}
+        onClose={() => setDeleteMessageDialog({ isOpen: false, messageId: '' })}
+        onConfirm={() => {
+          if (deleteMessageDialog.messageId) {
+            deleteMessage(deleteMessageDialog.messageId);
+          }
+        }}
+        title="Eliminar Mensaje"
+        message="¿Estás seguro de que quieres eliminar este mensaje? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        variant="danger"
       />
     </div>
   );

@@ -24,6 +24,11 @@ export interface Message {
   content: string;
   timestamp: string;
   status: 'sent' | 'delivered' | 'read';
+  mediaUrl?: string | null;
+  mediaType?: 'image' | 'video' | 'audio' | 'document' | null;
+  fileName?: string | null;
+  mimeType?: string | null;
+  _id?: string; // MongoDB ID alias
 }
 
 export interface ChatWithMessages {
@@ -67,6 +72,21 @@ export const chatService = {
     return response.data.message;
   },
 
+  async sendMediaMessage(chatId: string, file: File, caption?: string): Promise<Message> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (caption) formData.append('content', caption);
+
+    const response = await api.post(`/chats/${chatId}/message`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data.message;
+  },
+
+  getMediaUrl(messageId: string): string {
+    return `${api.defaults.baseURL}/chats/media/${messageId}`;
+  },
+
   async findChatByPhone(phoneNumber: string, clientId?: string): Promise<Chat | null> {
     try {
       const params: any = { phoneNumber };
@@ -81,6 +101,23 @@ export const chatService = {
       }
       throw error;
     }
+  },
+
+  async adminSearchChatsByPhone(phoneNumber: string): Promise<Chat[]> {
+    try {
+      const response = await api.get('/chats/admin/search/phone', { params: { phoneNumber } });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async adminGetGlobalChatMessages(clientId: string, chatId: string): Promise<{ chatId: string, clientId: string, messages: Message[] }> {
+    const response = await api.get(`/chats/admin/search/phone/messages/${clientId}/${chatId}`);
+    return response.data;
   },
 
   async searchChats(query: string, clientId?: string): Promise<Chat[]> {
@@ -102,5 +139,13 @@ export const chatService = {
   async assignChatToAdvisor(chatId: string, advisorId: string | null): Promise<Chat> {
     const response = await api.put(`/chats/${chatId}/assign-advisor`, { advisorId });
     return response.data.chat;
+  },
+
+  async deleteMessage(messageId: string): Promise<void> {
+    await api.delete(`/chats/messages/${messageId}`);
+  },
+
+  async deleteChat(chatId: string): Promise<void> {
+    await api.delete(`/chats/${chatId}`);
   }
 };

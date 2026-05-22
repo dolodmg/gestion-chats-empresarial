@@ -1,4 +1,5 @@
 import api from './api';
+import { ClientFeatureFlags } from '@/utils/featureFlags';
 
 export interface LoginCredentials {
   email: string;
@@ -7,6 +8,7 @@ export interface LoginCredentials {
 
 export interface User {
   _id: string;
+  id?: string;
   name: string;
   email: string;
   role: 'admin' | 'client' | 'advisor';
@@ -14,6 +16,7 @@ export interface User {
   advisorId?: string;
   workflowId?: string;
   whatsappToken?: string;
+  featureFlags?: Partial<ClientFeatureFlags>;
 }
 
 export interface LoginResponse {

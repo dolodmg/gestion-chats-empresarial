@@ -16,6 +16,7 @@ import Asesores from './pages/Asesores';
 import AdvisorMetrics from './pages/AdvisorMetrics';
 import Campaigns from './pages/Campaigns';
 import Templates from './pages/Templates';
+import ClientMetrics from './pages/ClientMetrics';
 import { Toaster } from "@/components/ui/sonner";
 
 function AppRoutes() {
@@ -58,9 +59,17 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/admin/client-metrics/:clientId/:userName"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <ClientMetrics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/data"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredFeature="data">
             <MisDatos />
           </ProtectedRoute>
         }
@@ -68,7 +77,7 @@ function AppRoutes() {
       <Route
         path="/inscripciones"
         element={
-          <ProtectedRoute requiredClientId="751524394719240" excludeRole="advisor">
+          <ProtectedRoute requiredClientId="751524394719240" excludeRole="advisor" requiredFeature="inscripciones">
             <Inscripciones />
           </ProtectedRoute>
         }
@@ -76,7 +85,7 @@ function AppRoutes() {
       <Route
         path="/assistant"
         element={
-          <ProtectedRoute excludeRole="advisor">
+          <ProtectedRoute excludeRole="advisor" requiredFeature="assistant">
             <AsistenteIA />
           </ProtectedRoute>
         }
@@ -92,7 +101,7 @@ function AppRoutes() {
       <Route
         path="/meta-eventos"
         element={
-          <ProtectedRoute excludeRole="advisor">
+          <ProtectedRoute excludeRole="advisor" requiredFeature="metaEventos">
             <MetaEventos />
           </ProtectedRoute>
         }
@@ -100,7 +109,7 @@ function AppRoutes() {
       <Route
         path="/asesores"
         element={
-          <ProtectedRoute excludeRole="advisor">
+          <ProtectedRoute excludeRole="advisor" requiredFeature="advisors">
             <Asesores />
           </ProtectedRoute>
         }
@@ -108,7 +117,7 @@ function AppRoutes() {
       <Route
         path="/advisor-metrics"
         element={
-          <ProtectedRoute excludeRole="advisor">
+          <ProtectedRoute excludeRole="advisor" requiredFeature="advisorMetrics">
             <AdvisorMetrics />
           </ProtectedRoute>
         }
@@ -116,7 +125,7 @@ function AppRoutes() {
       <Route
         path="/campaigns"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredFeature="campaigns">
             <Campaigns />
           </ProtectedRoute>
         }
@@ -124,7 +133,7 @@ function AppRoutes() {
       <Route
         path="/templates"
         element={
-          <ProtectedRoute excludeRole="advisor">
+          <ProtectedRoute excludeRole="advisor" requiredFeature="templates">
             <Templates />
           </ProtectedRoute>
         }

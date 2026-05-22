@@ -14,7 +14,10 @@ interface ChatContextType {
   setActiveChat: (chat: Chat) => void;
   toggleChatMode: (chatId: string) => void;
   sendMessage: (content: string) => void;
+  sendMediaMessage: (file: File, caption?: string) => void;
   takeChatControl: (chatId: string) => void;
+  deleteMessage: (messageId: string) => Promise<void>;
+  deleteChat: (chatId: string) => Promise<void>;
   refreshChats: () => void;
   loadMoreChats: () => void;
   hasMore: boolean;
@@ -298,6 +301,47 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeChat]); // 👈 Añadir useCallback y dependencias
 
+  // Enviar mensaje con archivo adjunto
+  const sendMediaMessage = useCallback(async (file: File, caption?: string) => {
+    if (!activeChat) return;
+
+    try {
+      const newMessage = await chatService.sendMediaMessage(activeChat.chatId, file, caption);
+
+      console.log('📤 Media enviado, respuesta:', newMessage);
+
+      // Agregar el mensaje SOLO si no llegó ya por SSE
+      setMessages(prev => {
+        if (prev.some(m => m.id === newMessage.id)) {
+          console.log('⚠️ Mensaje ya existe (llegó por SSE primero)');
+          return prev;
+        }
+
+        const newMessages = [...prev, newMessage];
+        return newMessages.sort((a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      });
+
+      // Actualizar el último mensaje en la lista de chats
+      const displayText = caption || (file ? `📎 ${file.name}` : '[archivo]');
+      setChats(prevChats =>
+        prevChats.map(chat =>
+          chat.chatId === activeChat.chatId
+            ? {
+              ...chat,
+              lastMessage: displayText,
+              lastMessageTimestamp: newMessage.timestamp
+            }
+            : chat
+        )
+      );
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Error al enviar archivo');
+      console.error('❌ Error al enviar archivo:', error);
+    }
+  }, [activeChat]);
+
   // Reemplaza tu 'takeChatControl' (líneas 286-302)
   const takeChatControl = useCallback(async (chatId: string) => {
     try {
@@ -317,6 +361,34 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeChat]); // 👈 Añadir useCallback y dependencias
 
+
+  // Eliminar un mensaje
+  const deleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await chatService.deleteMessage(messageId);
+      // Actualizar estado local
+      setMessages(prev => prev.filter(msg => msg.id !== messageId && msg._id !== messageId));
+    } catch (error: any) {
+      console.error('Error al eliminar mensaje:', error);
+      throw error;
+    }
+  }, []);
+
+  // Eliminar un chat completo
+  const deleteChat = useCallback(async (chatId: string) => {
+    try {
+      await chatService.deleteChat(chatId);
+      // Actualizar estado local
+      setChats(prev => prev.filter(chat => chat.chatId !== chatId));
+      if (activeChat?.chatId === chatId) {
+        setActiveChat(null);
+        setMessages([]);
+      }
+    } catch (error: any) {
+      console.error('Error al eliminar chat:', error);
+      throw error;
+    }
+  }, [activeChat]);
 
   // Función para navegar a un chat por número de teléfono
   const navigateToChatByPhone = useCallback(async (phoneNumber: string): Promise<boolean> => {
@@ -453,7 +525,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setActiveChat: handleSetActiveChat,  // ✅ CAMBIO: Usar función personalizada
       toggleChatMode,
       sendMessage,
+      sendMediaMessage,
       takeChatControl,
+      deleteMessage,
+      deleteChat,
       refreshChats,
       loadMoreChats,
       hasMore,

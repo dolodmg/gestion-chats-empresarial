@@ -1,5 +1,6 @@
 import api from './api';
 import { User } from './authService';
+import { ClientFeatureFlags } from '@/utils/featureFlags';
 
 export interface CreateUserData {
   name: string;
@@ -10,6 +11,7 @@ export interface CreateUserData {
   workflowId?: string;
   whatsappToken?: string;
   wabaId?: string;
+  featureFlags?: Partial<ClientFeatureFlags>;
 }
 
 export interface UpdateUserData {
@@ -21,11 +23,38 @@ export interface UpdateUserData {
   workflowId?: string;
   whatsappToken?: string;
   wabaId?: string;
+  featureFlags?: Partial<ClientFeatureFlags>;
+}
+
+export interface ClientAdminMetrics {
+  clientId: string;
+  incomingMessages: number;
+  botMessages: number;
+  totalMessages: number;
+  activeChatsInRange: number;
+  lastMessageAt: string | null;
+  dateRange?: {
+    startDate: string | null;
+    endDate: string | null;
+  };
+}
+
+export interface ClientMetricsFilters {
+  clientId: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export const userService = {
   async getUsers(): Promise<User[]> {
     const response = await api.get('/users');
+    return response.data;
+  },
+
+  async getClientMetrics(filters: ClientMetricsFilters): Promise<ClientAdminMetrics> {
+    const response = await api.get('/users/metrics/clients', {
+      params: filters
+    });
     return response.data;
   },
 
