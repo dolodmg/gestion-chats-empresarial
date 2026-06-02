@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  whatsapp_front:
+    container_name: whatsapp_front
+    build: .
+    restart: always
+    ports:
+      - "5173:80"
+    networks:
+      - webnet
+
+networks:
+  webnet:
+    driver: bridge

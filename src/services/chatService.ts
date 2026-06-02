@@ -25,7 +25,7 @@ export interface Message {
   timestamp: string;
   status: 'sent' | 'delivered' | 'read';
   mediaUrl?: string | null;
-  mediaType?: 'image' | 'video' | 'audio' | 'document' | null;
+  mediaType?: 'image' | 'video' | 'audio' | 'document' | 'sticker' | null;
   fileName?: string | null;
   mimeType?: string | null;
   _id?: string; // MongoDB ID alias

@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://chat.pupuia.com/api';
+export const API_BASE_URL = 'https://chat.pupuia.com/api';
+export const API_PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
 // Create axios instance
 const api = axios.create({

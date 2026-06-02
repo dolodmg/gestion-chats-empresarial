@@ -31,16 +31,65 @@ import {
   FileIcon,
   Film,
   Mic,
-  Trash2
+  Trash2,
+  Sparkles,
+  ImagePlus
 } from 'lucide-react';
 import { TagFilter } from '@/components/tags/TagFilter';
 import { ChatSummaryModal } from '@/components/summaries/ChatSummaryModal';
 import { SendTemplateModal } from '@/components/templates/SendTemplateModal';
 import { ExportChatsModal } from '@/components/chats/ExportChatsModal';
 import { ChatSearchBar } from '@/components/chats/ChatSearchBar';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { chatService } from '../services/chatService';
+import { stickerService, type CustomSticker, type PresetSticker } from '../services/stickerService';
 import { isFeatureEnabled } from '@/utils/featureFlags';
+
+function EmojiIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 14.5c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8" />
+      <path d="M9 10h.01" />
+      <path d="M15 10h.01" />
+    </svg>
+  );
+}
+
+function StickerIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M7 3h7l5 5v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4Z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13c.8 1 1.8 1.5 3 1.5s2.2-.5 3-1.5" />
+      <path d="M9 10h.01" />
+      <path d="M15 10h.01" />
+    </svg>
+  );
+}
+
+const DEFAULT_PRESET_STICKERS: PresetSticker[] = [
+  { id: 'preset-hola', name: 'Hola', emoji: '👋', accent: '#dff7e8', textColor: '#17603a', category: 'saludos' },
+  { id: 'preset-gracias', name: 'Gracias', emoji: '🙏', accent: '#fff1bf', textColor: '#7a5b00', category: 'saludos' },
+  { id: 'preset-ok', name: 'Ok', emoji: '👌', accent: '#dbeafe', textColor: '#18406b', category: 'rapidas' },
+  { id: 'preset-genial', name: 'Genial', emoji: '✨', accent: '#fce7f3', textColor: '#7a2858', category: 'rapidas' },
+  { id: 'preset-urgente', name: 'Urgente', emoji: '⚡', accent: '#fee2e2', textColor: '#8a1c1c', category: 'gestion' },
+  { id: 'preset-volvemos', name: 'Volvemos', emoji: '⏳', accent: '#ede9fe', textColor: '#4d2b87', category: 'gestion' },
+  { id: 'preset-oferta', name: 'Oferta', emoji: '🔥', accent: '#ffedd5', textColor: '#8a3a13', category: 'ventas' },
+  { id: 'preset-promo', name: 'Promo', emoji: '🎉', accent: '#dcfce7', textColor: '#166534', category: 'ventas' },
+  { id: 'preset-envio', name: 'Enviado', emoji: '📦', accent: '#e0f2fe', textColor: '#0f4c75', category: 'gestion' },
+  { id: 'preset-pago', name: 'Pago', emoji: '💸', accent: '#fef3c7', textColor: '#854d0e', category: 'ventas' },
+  { id: 'preset-amor', name: 'Gracias', emoji: '❤️', accent: '#ffe4e6', textColor: '#9f1239', category: 'saludos' },
+  { id: 'preset-idea', name: 'Idea', emoji: '💡', accent: '#fef9c3', textColor: '#854d0e', category: 'rapidas' }
+];
+
+const EMOJI_GROUPS = [
+  ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '🙂', '😉', '😍', '😘', '😗', '😙', '😚', '😋', '😜', '🤪', '😝', '🤗', '🤩', '😎', '🥳'],
+  ['😌', '😏', '😴', '🤤', '😪', '😵', '🤯', '😬', '😳', '🥺', '😭', '😡', '🤬', '😱', '😨', '😰', '😥', '😓', '🫠', '🤔', '🫡', '🤝', '🙏', '👏'],
+  ['👍', '👎', '👌', '✌️', '🤞', '🫶', '👋', '🙌', '💪', '👀', '🧠', '🫀', '❤️', '💛', '💚', '💙', '💜', '🖤', '🤍', '💔', '❤️‍🔥', '💯', '✨', '🔥'],
+  ['🎉', '🎊', '✅', '❌', '⚠️', '⭐', '🌟', '💫', '⚡', '💥', '💬', '📢', '📌', '📦', '🎁', '💸', '💳', '🛒', '📲', '📞', '📅', '⏳', '⌛', '🚀']
+];
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -88,9 +137,19 @@ export default function Dashboard() {
   const listRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stickerFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSendingFile, setIsSendingFile] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showStickerPanel, setShowStickerPanel] = useState(false);
+  const [isCreateStickerModalOpen, setIsCreateStickerModalOpen] = useState(false);
+  const [presetStickers, setPresetStickers] = useState<PresetSticker[]>(DEFAULT_PRESET_STICKERS);
+  const [customStickers, setCustomStickers] = useState<CustomSticker[]>([]);
+  const [createdStickerFile, setCreatedStickerFile] = useState<File | null>(null);
+  const [createdStickerPreview, setCreatedStickerPreview] = useState<string | null>(null);
+  const [createdStickerSourceName, setCreatedStickerSourceName] = useState('');
+  const [isStickerLoading, setIsStickerLoading] = useState(false);
 
   React.useEffect(() => {
     tagService.loadUserTags();
@@ -119,6 +178,24 @@ export default function Dashboard() {
       setShowMobileChatList(true);
     }
   }, [activeChat, isMobile]);
+
+  React.useEffect(() => {
+    if (!activeChat) {
+      setShowEmojiPicker(false);
+      setShowStickerPanel(false);
+      setIsCreateStickerModalOpen(false);
+    }
+  }, [activeChat?.chatId]);
+
+  React.useEffect(() => {
+    if (isCreateStickerModalOpen && !createdStickerFile) {
+      const timeoutId = window.setTimeout(() => {
+        stickerFileInputRef.current?.click();
+      }, 120);
+
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [isCreateStickerModalOpen, createdStickerFile]);
 
   // Handlers para tags
   const handleAddTag = async (chatId: string, tagName: string) => {
@@ -260,6 +337,237 @@ export default function Dashboard() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleInsertEmoji = (emoji: string) => {
+    setNewMessage((prev) => `${prev}${emoji}`);
+    setShowEmojiPicker(false);
+  };
+
+  const loadStickerLibrary = async () => {
+    try {
+      const data = await stickerService.getStickers();
+      setCustomStickers(data.custom || []);
+    } catch (error: any) {
+      toast.error('Error al cargar stickers', { description: error.message || 'No se pudo cargar la biblioteca' });
+    }
+  };
+
+  const toggleStickerPanel = async () => {
+    const nextState = !showStickerPanel;
+    setShowStickerPanel(nextState);
+    setShowEmojiPicker(false);
+
+    if (nextState && customStickers.length === 0) {
+      await loadStickerLibrary();
+    }
+  };
+
+  const slugify = (value: string) =>
+    value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'sticker';
+
+  const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) =>
+    new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('No se pudo generar el sticker'));
+          return;
+        }
+        resolve(blob);
+      }, 'image/webp', quality);
+    });
+
+  const exportCanvasToStickerFile = async (canvas: HTMLCanvasElement, fileName: string) => {
+    let quality = 0.92;
+    let blob = await canvasToBlob(canvas, quality);
+
+    while (blob.size > 100 * 1024 && quality > 0.5) {
+      quality -= 0.08;
+      blob = await canvasToBlob(canvas, quality);
+    }
+
+    if (blob.size > 100 * 1024) {
+      throw new Error('No se pudo generar un sticker menor a 100 KB');
+    }
+
+    return new File([blob], fileName, { type: 'image/webp' });
+  };
+
+  const createPresetStickerFile = async (preset: PresetSticker) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('No se pudo crear el sticker');
+    }
+
+    ctx.fillStyle = preset.accent;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 512, 512, 64);
+    ctx.fill();
+
+    ctx.font = '220px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(preset.emoji, 256, 210);
+
+    ctx.fillStyle = preset.textColor;
+    ctx.font = 'bold 48px sans-serif';
+    ctx.fillText(preset.name.toUpperCase(), 256, 390);
+
+    return exportCanvasToStickerFile(canvas, `${slugify(preset.name)}.webp`);
+  };
+
+  const fileToImage = (file: File) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new window.Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+        img.src = reader.result as string;
+      };
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+      reader.readAsDataURL(file);
+    });
+
+  const buildStickerFromImage = async (sourceFile: File) => {
+    const image = await fileToImage(sourceFile);
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('No se pudo preparar el sticker');
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 512, 512, 52);
+    ctx.fill();
+
+    const padding = 36;
+    const drawableSize = 512 - padding * 2;
+    const scale = Math.min(drawableSize / image.width, drawableSize / image.height);
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const x = (512 - drawWidth) / 2;
+    const y = (512 - drawHeight) / 2;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(18, 18, 476, 476, 36);
+    ctx.clip();
+    ctx.drawImage(image, x, y, drawWidth, drawHeight);
+    ctx.restore();
+
+    return exportCanvasToStickerFile(canvas, `${slugify(sourceFile.name)}.webp`);
+  };
+
+  const handleStickerSourceSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const sourceFile = e.target.files?.[0];
+    if (!sourceFile) return;
+
+    setIsStickerLoading(true);
+    try {
+      const stickerFile = await buildStickerFromImage(sourceFile);
+      setCreatedStickerSourceName(sourceFile.name);
+      setCreatedStickerFile(stickerFile);
+      setCreatedStickerPreview(URL.createObjectURL(stickerFile));
+    } catch (error: any) {
+      toast.error('Error creando sticker', { description: error.message });
+      setCreatedStickerFile(null);
+      setCreatedStickerPreview(null);
+    } finally {
+      setIsStickerLoading(false);
+    }
+  };
+
+  const resetCreatedSticker = () => {
+    if (createdStickerPreview) {
+      URL.revokeObjectURL(createdStickerPreview);
+    }
+    setCreatedStickerFile(null);
+    setCreatedStickerPreview(null);
+    setCreatedStickerSourceName('');
+    if (stickerFileInputRef.current) {
+      stickerFileInputRef.current.value = '';
+    }
+  };
+
+  const openCreateStickerModal = () => {
+    resetCreatedSticker();
+    setIsCreateStickerModalOpen(true);
+  };
+
+  const sendStickerFile = async (file: File, caption?: string) => {
+    setIsSendingFile(true);
+    try {
+      await sendMediaMessage(file, caption);
+      toast.success('Sticker enviado');
+      setShowStickerPanel(false);
+    } catch {
+      toast.error('Error al enviar sticker');
+    } finally {
+      setIsSendingFile(false);
+    }
+  };
+
+  const handleSendPresetSticker = async (preset: PresetSticker) => {
+    try {
+      const stickerFile = await createPresetStickerFile(preset);
+      await sendStickerFile(stickerFile);
+    } catch (error: any) {
+      toast.error('Error al crear sticker', { description: error.message });
+    }
+  };
+
+  const handleSendCustomSticker = async (sticker: CustomSticker) => {
+    try {
+      const response = await fetch(sticker.fileUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `${slugify(sticker.name)}.webp`, { type: 'image/webp' });
+      await sendStickerFile(file);
+    } catch {
+      toast.error('Error al enviar sticker');
+    }
+  };
+
+  const handleSaveCreatedSticker = async () => {
+    if (!createdStickerFile) return;
+
+    try {
+      const savedSticker = await stickerService.createSticker(createdStickerFile);
+      setCustomStickers((prev) => [savedSticker, ...prev]);
+      toast.success('Sticker guardado');
+    } catch (error: any) {
+      toast.error('Error al guardar sticker', { description: error.message || 'No se pudo guardar' });
+    }
+  };
+
+  const handleDeleteCustomSticker = async (stickerId: string) => {
+    try {
+      await stickerService.deleteSticker(stickerId);
+      setCustomStickers((prev) => prev.filter((sticker) => sticker._id !== stickerId));
+      toast.success('Sticker eliminado');
+    } catch (error: any) {
+      toast.error('Error al eliminar sticker', { description: error.message || 'No se pudo eliminar' });
+    }
+  };
+
+  const handleSendCreatedSticker = async () => {
+    if (!createdStickerFile) return;
+    await sendStickerFile(createdStickerFile);
+    resetCreatedSticker();
+    setIsCreateStickerModalOpen(false);
+  };
+
   const handleSendFileMessage = async () => {
     if (!selectedFile) return;
     setIsSendingFile(true);
@@ -278,6 +586,7 @@ export default function Dashboard() {
   const getMediaTypeIcon = (mediaType: string | null | undefined) => {
     switch (mediaType) {
       case 'image': return <Image className="w-4 h-4" />;
+      case 'sticker': return <StickerIcon className="w-4 h-4" />;
       case 'video': return <Film className="w-4 h-4" />;
       case 'audio': return <Mic className="w-4 h-4" />;
       case 'document': return <FileIcon className="w-4 h-4" />;
@@ -286,6 +595,7 @@ export default function Dashboard() {
   };
 
   const getFileTypeLabel = (file: File): string => {
+    if (file.type === 'image/webp') return 'Sticker';
     if (file.type.startsWith('image/')) return 'Imagen';
     if (file.type.startsWith('video/')) return 'Video';
     if (file.type.startsWith('audio/')) return 'Audio';
@@ -835,6 +1145,14 @@ export default function Dashboard() {
                                   </button>
                                 </div>
                               )}
+                              {message.mediaType === 'sticker' && (
+                                <img
+                                  src={mediaUrlWithAuth}
+                                  alt={message.fileName || 'Sticker'}
+                                  className="w-32 h-32 object-contain"
+                                  loading="lazy"
+                                />
+                              )}
                               {message.mediaType === 'video' && (
                                 <video
                                   controls
@@ -872,7 +1190,7 @@ export default function Dashboard() {
                           {message.content && !message.mediaUrl && (
                             <p className="whitespace-pre-wrap">{message.content}</p>
                           )}
-                          {message.content && message.mediaUrl && !['Imagen', 'imagen', 'Image', 'image', 'Audio', 'audio', 'Video', 'video', 'Documento', 'documento'].includes(message.content.trim()) && !message.content.startsWith('📎 ') && (
+                          {message.content && message.mediaUrl && !['Imagen', 'imagen', 'Image', 'image', 'Audio', 'audio', 'Video', 'video', 'Documento', 'documento', 'Sticker', 'sticker'].includes(message.content.trim()) && !message.content.startsWith('📎 ') && (
                             <p className="whitespace-pre-wrap">{message.content}</p>
                           )}
                           <div className="flex items-center justify-between mt-1 gap-4">
@@ -936,6 +1254,117 @@ export default function Dashboard() {
                     </button>
                   </div>
                 )}
+                {(showEmojiPicker || showStickerPanel) && (
+                  <div className="mb-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+                    {showEmojiPicker && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <EmojiIcon className="h-4 w-4 text-amber-500" />
+                            <span>Emojis</span>
+                          </div>
+                        <div className="space-y-2">
+                          {EMOJI_GROUPS.map((group, index) => (
+                            <div key={index} className="grid grid-cols-6 sm:grid-cols-12 gap-2">
+                              {group.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => handleInsertEmoji(emoji)}
+                                  className="rounded-xl border border-gray-200 bg-gray-50 py-2 text-lg hover:bg-gray-100 transition-colors"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {showStickerPanel && (
+                      <div className="space-y-4">
+                        <div>
+                          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-900">
+                            <StickerIcon className="h-4 w-4 text-emerald-600" />
+                            <span>Biblioteca default</span>
+                          </div>
+                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                            {presetStickers.map((preset) => (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => handleSendPresetSticker(preset)}
+                                className="rounded-2xl border border-gray-200 bg-gray-50 p-3 hover:bg-gray-100 transition-colors text-center"
+                              >
+                                <span className="block text-3xl">{preset.emoji}</span>
+                                <span className="mt-1 block text-xs text-gray-700 truncate">{preset.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-900">
+                            <StickerIcon className="h-4 w-4 text-sky-600" />
+                            <span>Tus stickers</span>
+                          </div>
+                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                            {customStickers.length > 0 ? customStickers.map((sticker) => (
+                              <div
+                                key={sticker._id}
+                                className="group relative rounded-2xl border border-gray-200 bg-gray-50 p-2 transition-colors hover:bg-gray-100"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendCustomSticker(sticker)}
+                                  className="block w-full text-center"
+                                >
+                                  <img src={sticker.fileUrl} alt={sticker.name} className="mx-auto h-16 w-16 object-contain" />
+                                  <span className="mt-1 block text-xs text-gray-700 truncate">{sticker.name}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteCustomSticker(sticker._id);
+                                  }}
+                                  className="absolute right-2 top-2 rounded-full border border-red-200 bg-white p-1 text-red-500 opacity-0 shadow-sm transition-opacity hover:bg-red-50 group-hover:opacity-100"
+                                  title="Eliminar sticker"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )) : (
+                              <div className="col-span-full rounded-xl border border-dashed border-gray-200 p-3 text-sm text-gray-500">
+                                Todavía no hay stickers guardados
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-900">
+                            <StickerIcon className="h-4 w-4 text-violet-600" />
+                            <span>Crear sticker</span>
+                          </div>
+                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                            <button
+                              type="button"
+                              onClick={openCreateStickerModal}
+                              className="flex min-h-[112px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white p-3 text-center text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50"
+                            >
+                              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                                <ImagePlus className="h-5 w-5" />
+                              </div>
+                              <span className="text-sm font-medium">Crear</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
                   <input
                     type="file"
@@ -944,6 +1373,25 @@ export default function Dashboard() {
                     className="hidden"
                     accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEmojiPicker((prev) => !prev);
+                      setShowStickerPanel(false);
+                    }}
+                    className="p-2 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+                    title="Emojis"
+                  >
+                    <EmojiIcon className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleStickerPanel}
+                    className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+                    title="Stickers"
+                  >
+                    <StickerIcon className="h-5 w-5" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -1142,6 +1590,82 @@ export default function Dashboard() {
         confirmText="Eliminar"
         variant="danger"
       />
+      <Dialog open={isCreateStickerModalOpen} onOpenChange={setIsCreateStickerModalOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <StickerIcon className="h-5 w-5 text-violet-600" />
+              Crear sticker
+            </DialogTitle>
+            <DialogDescription>
+              Selecciona una imagen PNG, JPG o WEBP y genera un sticker para guardar o enviar al chat.
+            </DialogDescription>
+          </DialogHeader>
+
+          <input
+            ref={stickerFileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleStickerSourceSelect}
+            className="hidden"
+          />
+
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => stickerFileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <ImagePlus className="h-4 w-4" />
+              <span>{createdStickerFile ? 'Cambiar foto' : 'Seleccionar foto'}</span>
+            </button>
+
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+              {createdStickerSourceName || 'Todavía no seleccionaste ninguna foto'}
+            </div>
+
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+              <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50">
+                {createdStickerPreview ? (
+                  <img src={createdStickerPreview} alt="Preview sticker" className="h-full w-full object-contain" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-gray-400">
+                    <StickerIcon className="h-6 w-6" />
+                    <span className="text-[11px] text-center px-2">Preview</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-1 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveCreatedSticker}
+                  disabled={!createdStickerFile || isStickerLoading}
+                  className="rounded-full border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Guardar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendCreatedSticker}
+                  disabled={!createdStickerFile || isStickerLoading || isSendingFile}
+                  className="rounded-full bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Enviar
+                </button>
+                <button
+                  type="button"
+                  onClick={resetCreatedSticker}
+                  disabled={!createdStickerFile && !createdStickerPreview}
+                  className="rounded-full border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
