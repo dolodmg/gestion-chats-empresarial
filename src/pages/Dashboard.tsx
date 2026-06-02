@@ -1109,8 +1109,6 @@ export default function Dashboard() {
                   {messageGroups[dateKey].map((message) => {
                     const messageId = message.id || message._id || '';
                     const mediaProxyUrl = messageId ? chatService.getMediaUrl(messageId) : '';
-                    const token = localStorage.getItem('auth_token');
-                    const mediaUrlWithAuth = mediaProxyUrl ? `${mediaProxyUrl}?token=${token}` : '';
 
                     return (
                       <div
@@ -1129,15 +1127,15 @@ export default function Dashboard() {
                               {message.mediaType === 'image' && (
                                 <div className="relative group">
                                   <img
-                                    src={mediaUrlWithAuth}
+                                    src={mediaProxyUrl}
                                     alt=""
                                     className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                     style={{ maxHeight: '300px' }}
-                                    onClick={() => setLightboxImage({ url: mediaUrlWithAuth, fileName: message.fileName || undefined })}
+                                    onClick={() => setLightboxImage({ url: mediaProxyUrl, fileName: message.fileName || undefined })}
                                     loading="lazy"
                                   />
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); handleDownloadFile(mediaUrlWithAuth, message.fileName || 'imagen'); }}
+                                    onClick={(e) => { e.stopPropagation(); handleDownloadFile(mediaProxyUrl, message.fileName || 'imagen'); }}
                                     className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
                                     title="Descargar"
                                   >
@@ -1147,7 +1145,7 @@ export default function Dashboard() {
                               )}
                               {message.mediaType === 'sticker' && (
                                 <img
-                                  src={mediaUrlWithAuth}
+                                  src={mediaProxyUrl}
                                   alt={message.fileName || 'Sticker'}
                                   className="w-32 h-32 object-contain"
                                   loading="lazy"
@@ -1159,19 +1157,19 @@ export default function Dashboard() {
                                   className="max-w-full rounded-lg"
                                   style={{ maxHeight: '300px' }}
                                 >
-                                  <source src={mediaUrlWithAuth} />
+                                  <source src={mediaProxyUrl} />
                                   Tu navegador no soporta video.
                                 </video>
                               )}
                               {message.mediaType === 'audio' && (
                                 <audio controls className="w-full min-w-[200px]">
-                                  <source src={mediaUrlWithAuth} />
+                                  <source src={mediaProxyUrl} />
                                   Tu navegador no soporta audio.
                                 </audio>
                               )}
                               {message.mediaType === 'document' && (
                                 <a
-                                  href={mediaUrlWithAuth}
+                                  href={mediaProxyUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${message.sender === 'user'

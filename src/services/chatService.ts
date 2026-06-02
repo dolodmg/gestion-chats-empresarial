@@ -1,6 +1,7 @@
 // chatService.ts
 
 import api from './api';
+import { authService } from './authService';
 
 export interface Chat {
   chatId: string;
@@ -20,14 +21,30 @@ export interface Chat {
 export interface Message {
   id: string;
   chatId: string;
+  clientId?: string;
+  messageId?: string | null;
+  responseToMessageId?: string | null;
   sender: 'user' | 'bot';
+  direction?: 'inbound' | 'outbound' | 'internal';
+  source?: 'n8n' | 'dashboard' | 'meta_webhook' | 'api' | 'migration' | 'unknown';
+  provider?: 'whatsapp_meta' | 'n8n' | 'internal' | 'unknown';
   content: string;
   timestamp: string;
-  status: 'sent' | 'delivered' | 'read';
+  status: 'received' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
+  messageType?: 'text' | 'image' | 'video' | 'audio' | 'document' | 'sticker' | 'template' | 'system' | 'unknown';
+  templateName?: string | null;
+  workflowId?: string | null;
+  workflowName?: string | null;
+  insertedBy?: string | null;
+  aiGenerated?: boolean;
   mediaUrl?: string | null;
   mediaType?: 'image' | 'video' | 'audio' | 'document' | 'sticker' | null;
   fileName?: string | null;
   mimeType?: string | null;
+  metaStatus?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  retentionUntil?: string | null;
   _id?: string; // MongoDB ID alias
 }
 
@@ -84,7 +101,9 @@ export const chatService = {
   },
 
   getMediaUrl(messageId: string): string {
-    return `${api.defaults.baseURL}/chats/media/${messageId}`;
+    const browserToken = authService.getStoredBrowserToken();
+    const query = browserToken ? `?browserToken=${encodeURIComponent(browserToken)}` : '';
+    return `${api.defaults.baseURL}/chats/media/${messageId}${query}`;
   },
 
   async findChatByPhone(phoneNumber: string, clientId?: string): Promise<Chat | null> {

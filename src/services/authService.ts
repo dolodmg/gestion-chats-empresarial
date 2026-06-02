@@ -1,4 +1,4 @@
-import api from './api';
+import api, { clearStoredBrowserToken, getStoredBrowserToken, refreshBrowserToken } from './api';
 import { ClientFeatureFlags } from '@/utils/featureFlags';
 
 export interface LoginCredentials {
@@ -16,6 +16,7 @@ export interface User {
   advisorId?: string;
   workflowId?: string;
   whatsappToken?: string;
+  hasWhatsappToken?: boolean;
   featureFlags?: Partial<ClientFeatureFlags>;
 }
 
@@ -31,6 +32,7 @@ export const authService = {
 
     localStorage.setItem('auth_token', token);
     localStorage.setItem('user_data', JSON.stringify(user));
+    await refreshBrowserToken();
 
     return { token, user };
   },
@@ -38,6 +40,7 @@ export const authService = {
   async getCurrentUser(): Promise<User> {
     // Docs: GET /api/auth
     const response = await api.get('/auth');
+    await refreshBrowserToken();
     const data = response.data;
     return {
       ...data,
@@ -57,6 +60,7 @@ export const authService = {
   logout() {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
+    clearStoredBrowserToken();
   },
 
   getStoredUser(): User | null {
@@ -66,5 +70,13 @@ export const authService = {
 
   getStoredToken(): string | null {
     return localStorage.getItem('auth_token');
+  },
+
+  async refreshBrowserToken(): Promise<string> {
+    return refreshBrowserToken();
+  },
+
+  getStoredBrowserToken(): string | null {
+    return getStoredBrowserToken();
   }
 };

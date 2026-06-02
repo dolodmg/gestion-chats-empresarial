@@ -168,7 +168,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user && token) {
       console.log('🔌 Conectando a SSE...');
-      sseService.connect(token);
+      void sseService.connect();
 
       const unsubscribe = sseService.subscribe((event) => {
         switch (event.type) {
