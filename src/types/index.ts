@@ -27,6 +27,10 @@ export interface Campaign {
     subject: string;
     htmlContent: string;
     textContent: string;
+    trackOpens?: boolean;
+    trackClicks?: boolean;
+    callToActionUrl?: string;
+    callToActionLabel?: string;
     recipients: Recipient[];
     status: 'draft' | 'sending' | 'sent' | 'failed' | 'partial';
     sentCount: number;
@@ -63,6 +67,10 @@ export interface CreateCampaignData {
     subject: string;
     htmlContent: string;
     textContent?: string;
+    trackOpens?: boolean;
+    trackClicks?: boolean;
+    callToActionUrl?: string;
+    callToActionLabel?: string;
     recipients?: Recipient[];
     emailCredentialId: string;
 }
@@ -77,6 +85,7 @@ export interface EmailCredential {
     user: string;
     fromName: string;
     fromEmail: string;
+    sendingDomain?: SendingDomain | string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -91,4 +100,60 @@ export interface CreateEmailCredentialData {
     password: string;
     fromName: string;
     fromEmail: string;
+    sendingDomainId: string;
+}
+
+export interface DnsRecord {
+    key: 'ownership' | 'spf' | 'dkim' | 'dmarc' | 'tracking' | 'bounce';
+    label: string;
+    type: 'TXT' | 'CNAME';
+    host: string;
+    value: string;
+}
+
+export interface DnsVerificationStatus {
+    status: 'pending' | 'configured' | 'error';
+    host?: string;
+    expectedValue?: string;
+    actualValue?: string;
+    errorMessage?: string;
+    checkedAt?: string;
+}
+
+export interface SendingDomain {
+    _id: string;
+    domain: string;
+    verificationToken: string;
+    verificationHost: string;
+    dkimSelector: string;
+    dkimPublicKey: string;
+    trackingSubdomain: string;
+    trackingTarget: string;
+    bounceSubdomain: string;
+    bounceTarget: string;
+    spfValue: string;
+    dmarcRua: string;
+    dmarcValue: string;
+    verificationStatus: {
+        ownership: DnsVerificationStatus;
+        spf: DnsVerificationStatus;
+        dkim: DnsVerificationStatus;
+        dmarc: DnsVerificationStatus;
+        tracking: DnsVerificationStatus;
+        bounce: DnsVerificationStatus;
+    };
+    dnsRecords: DnsRecord[];
+    isVerified: boolean;
+    isReadyForSending: boolean;
+    lastVerifiedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateSendingDomainData {
+    domain: string;
+    dkimSelector?: string;
+    trackingPrefix?: string;
+    bouncePrefix?: string;
+    dmarcRua?: string;
 }

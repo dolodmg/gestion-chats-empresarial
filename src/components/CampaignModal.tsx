@@ -29,6 +29,10 @@ export default function CampaignModal({
     const [recipients, setRecipients] = useState<Recipient[]>([]);
     const [showPreview, setShowPreview] = useState(false);
     const [emailCredentialId, setEmailCredentialId] = useState('');
+    const [trackOpens, setTrackOpens] = useState(true);
+    const [trackClicks, setTrackClicks] = useState(true);
+    const [callToActionUrl, setCallToActionUrl] = useState('');
+    const [callToActionLabel, setCallToActionLabel] = useState('');
     const [credentials, setCredentials] = useState<EmailCredential[]>([]);
     const [loadingCredentials, setLoadingCredentials] = useState(false);
     const [isCredentialModalOpen, setIsCredentialModalOpen] = useState(false);
@@ -46,12 +50,20 @@ export default function CampaignModal({
             setHtmlContent(initialData.htmlContent);
             setRecipients(initialData.recipients || []);
             setEmailCredentialId(initialData.emailCredentialId || '');
+            setTrackOpens(initialData.trackOpens !== false);
+            setTrackClicks(initialData.trackClicks !== false);
+            setCallToActionUrl(initialData.callToActionUrl || '');
+            setCallToActionLabel(initialData.callToActionLabel || '');
         } else {
             setName('');
             setSubject('');
             setHtmlContent('');
             setRecipients([]);
             setEmailCredentialId('');
+            setTrackOpens(true);
+            setTrackClicks(true);
+            setCallToActionUrl('');
+            setCallToActionLabel('');
         }
     }, [initialData, isOpen]);
 
@@ -84,6 +96,10 @@ export default function CampaignModal({
                 htmlContent: contentType === 'html' ? htmlContent.trim() : `<p>${htmlContent.trim().replace(/\n/g, '<br>')}</p>`,
                 textContent: htmlContent.trim(),
                 emailCredentialId: emailCredentialId,
+                trackOpens,
+                trackClicks,
+                callToActionUrl: callToActionUrl.trim(),
+                callToActionLabel: callToActionLabel.trim(),
             },
             recipients
         );
@@ -236,6 +252,72 @@ export default function CampaignModal({
                         <p className="text-xs text-gray-500 mt-1">
                             Usa <code className="bg-gray-100 px-1 rounded text-xs">{'{{nombre}}'}</code> para personalizar con el nombre del destinatario
                         </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                            Para ubicar el CTA donde vos quieras podés usar <code className="bg-gray-100 px-1 rounded text-xs">{'{{cta_url}}'}</code>, <code className="bg-gray-100 px-1 rounded text-xs">{'{{cta_label}}'}</code> o <code className="bg-gray-100 px-1 rounded text-xs">{'{{cta_button}}'}</code>.
+                        </p>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+                        <div>
+                            <h3 className="text-sm font-medium text-gray-900">Tracking automático</h3>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Podés hacer que el sistema agregue el pixel de apertura y un link/CTA medible sin tocar el HTML manualmente.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={trackOpens}
+                                    onChange={(e) => setTrackOpens(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                Agregar pixel de apertura
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={trackClicks}
+                                    onChange={(e) => setTrackClicks(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                Trackear clicks
+                            </label>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700">
+                                    Link / página web
+                                </label>
+                                <input
+                                    type="url"
+                                    value={callToActionUrl}
+                                    onChange={(e) => setCallToActionUrl(e.target.value)}
+                                    placeholder="https://tuweb.com/oferta"
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Si lo cargás, el sistema agrega un botón/link al correo y lo redirige por tu tracker.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700">
+                                    Texto del link
+                                </label>
+                                <input
+                                    type="text"
+                                    value={callToActionLabel}
+                                    onChange={(e) => setCallToActionLabel(e.target.value)}
+                                    placeholder="Quiero más información"
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Si lo dejás vacío, se usa <span className="font-medium">Ver más</span>.
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Preview */}

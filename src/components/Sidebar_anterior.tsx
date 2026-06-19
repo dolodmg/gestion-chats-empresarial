@@ -15,51 +15,28 @@ import {
   TrendingUp,
   BarChart3,
   Mail,
-  FileText,
-  ShieldCheck,
-  ChevronDown
+  FileText
 } from 'lucide-react';
 import { isFeatureEnabled } from '@/utils/featureFlags';
-
-type IconType = React.ComponentType<{ className?: string }>;
-
-interface NavigationChildItem {
-  path: string;
-  icon: IconType;
-  label: string;
-}
-
-interface NavigationItem {
-  path: string;
-  icon: IconType;
-  label: string;
-  children?: NavigationChildItem[];
-}
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
-  const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({});
 
   const getNavigationItems = () => {
-    const items: NavigationItem[] = [];
+    const items = [];
     const canAccess = (feature: Parameters<typeof isFeatureEnabled>[1]) =>
       isFeatureEnabled(user?.role, feature, user?.featureFlags);
-
-    const campaignChildren: NavigationChildItem[] = [
-      { path: '/sending-domains', icon: ShieldCheck, label: 'Dominios Email' }
-    ];
 
     if (user?.role === 'admin') {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/admin', icon: Users, label: 'Panel Admin' },
-        { path: '/campaigns', icon: Mail, label: 'Campañas', children: campaignChildren },
+        { path: '/campaigns', icon: Mail, label: 'Campañas' },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }
       );
-
       return items;
     }
 
@@ -70,9 +47,7 @@ export default function Sidebar() {
     }
 
     if (user?.role === 'client') {
-      if (canAccess('campaigns')) {
-        items.push({ path: '/campaigns', icon: Mail, label: 'Campañas', children: campaignChildren });
-      }
+      if (canAccess('campaigns')) items.push({ path: '/campaigns', icon: Mail, label: 'Campañas' });
       if (canAccess('templates')) items.push({ path: '/templates', icon: FileText, label: 'Plantillas de Mensajes' });
       if (canAccess('advisors')) items.push({ path: '/asesores', icon: Users, label: 'Asesores' });
       if (canAccess('advisorMetrics')) items.push({ path: '/advisor-metrics', icon: BarChart3, label: 'Métricas de Asesores' });
@@ -91,22 +66,6 @@ export default function Sidebar() {
   const closeMobileMenu = () => setIsMobileOpen(false);
 
   React.useEffect(() => {
-    setExpandedSections((current) => {
-      const next = { ...current };
-
-      navigationItems.forEach((item) => {
-        if (!item.children?.length) return;
-
-        if (location.pathname === item.path || item.children.some((child) => child.path === location.pathname)) {
-          next[item.path] = true;
-        }
-      });
-
-      return next;
-    });
-  }, [location.pathname]);
-
-  React.useEffect(() => {
     closeMobileMenu();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
@@ -114,13 +73,6 @@ export default function Sidebar() {
   const handleLogout = () => {
     closeMobileMenu();
     logout();
-  };
-
-  const toggleSection = (path: string) => {
-    setExpandedSections((current) => ({
-      ...current,
-      [path]: !current[path]
-    }));
   };
 
   return (
@@ -192,64 +144,20 @@ export default function Sidebar() {
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
-              const hasChildren = Boolean(item.children?.length);
-              const hasActiveChild = item.children?.some((child) => child.path === location.pathname) ?? false;
-              const isExpanded = expandedSections[item.path] ?? false;
 
               return (
                 <li key={item.path}>
-                  <div className="space-y-1">
-                    <div
-                      className={`flex items-center rounded-lg transition-colors ${isActive || hasActiveChild
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                    >
-                      <Link
-                        to={item.path}
-                        onClick={closeMobileMenu}
-                        className="flex min-w-0 flex-1 items-center space-x-3 px-3 py-2"
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span className="font-medium">{item.label}</span>
-                      </Link>
-
-                      {hasChildren && (
-                        <button
-                          type="button"
-                          onClick={() => toggleSection(item.path)}
-                          className="px-3 py-2 text-inherit"
-                        >
-                          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                        </button>
-                      )}
-                    </div>
-
-                    {hasChildren && isExpanded && (
-                      <ul className="ml-4 space-y-1 border-l border-gray-200 pl-3">
-                        {item.children!.map((child) => {
-                          const ChildIcon = child.icon;
-                          const isChildActive = location.pathname === child.path;
-
-                          return (
-                            <li key={child.path}>
-                              <Link
-                                to={child.path}
-                                onClick={closeMobileMenu}
-                                className={`flex items-center space-x-3 rounded-lg px-3 py-2 text-sm transition-colors ${isChildActive
-                                  ? 'bg-blue-50 text-blue-700'
-                                  : 'text-gray-600 hover:bg-gray-100'
-                                  }`}
-                              >
-                                <ChildIcon className="h-4 w-4" />
-                                <span className="font-medium">{child.label}</span>
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
+                  <Link
+                    to={item.path}
+                    onClick={closeMobileMenu}
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
                 </li>
               );
             })}

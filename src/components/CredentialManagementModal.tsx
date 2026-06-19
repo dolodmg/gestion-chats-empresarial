@@ -107,6 +107,9 @@ export default function CredentialManagementModal({ isOpen, onClose, onCredentia
                                                     <span className="font-medium">Usuario:</span> {credential.user}
                                                 </p>
                                                 <p className="text-xs text-gray-600">
+                                                    <span className="font-medium">Dominio:</span> {typeof credential.sendingDomain === 'string' ? credential.sendingDomain : credential.sendingDomain?.domain || 'Sin dominio'}
+                                                </p>
+                                                <p className="text-xs text-gray-600">
                                                     <span className="font-medium">Remitente:</span> {credential.fromName} &lt;{credential.fromEmail}&gt;
                                                 </p>
                                             </div>

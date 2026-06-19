@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Plus, Send, Edit2, Trash2, Eye, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Campaign, CampaignStats as CampaignStatsType, CreateCampaignData, Recipient } from '../types';
 import * as campaignService from '../services/campaignService';
 import CampaignStats from '../components/CampaignStats';
 import CampaignModal from '../components/CampaignModal';
 import CredentialManagementModal from '../components/CredentialManagementModal';
+import CampaignDetailsModal from '../components/CampaignDetailsModal';
 import AlertDialog from '../components/AlertDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -19,6 +21,8 @@ export default function Campaigns() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+    const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
     const [isCredentialManagementOpen, setIsCredentialManagementOpen] = useState(false);
     const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ isOpen: false, title: '', message: '', type: 'info' });
@@ -136,6 +140,17 @@ export default function Campaigns() {
         }
     };
 
+    const handleViewCampaign = async (campaign: Campaign) => {
+        try {
+            const response = await campaignService.getCampaignById(campaign._id);
+            setSelectedCampaign(response.campaign);
+            setIsDetailsOpen(true);
+        } catch (error) {
+            console.error('Error loading campaign details:', error);
+            showAlert('error', 'Error cargando el detalle de la campaÃ±a');
+        }
+    };
+
     const getStatusBadge = (status: Campaign['status']) => {
         const styles = {
             draft: 'bg-yellow-100 text-yellow-800',
@@ -177,7 +192,13 @@ export default function Campaigns() {
                         <h1 className="text-2xl font-bold text-gray-900 mb-2">Campañas de Email</h1>
                         <p className="text-gray-600">Gestiona y envía campañas de publicidad masivas</p>
                     </div>
-                    <div className="flex gap-3">
+                     <div className="flex gap-3">
+                        <Link
+                            to="/sending-domains"
+                            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                        >
+                            Dominios autenticados
+                        </Link>
                         <button
                             onClick={() => setIsCredentialManagementOpen(true)}
                             className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
@@ -255,7 +276,13 @@ export default function Campaigns() {
                                 {campaigns.map((campaign) => (
                                     <tr key={campaign._id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{campaign.name}</div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewCampaign(campaign)}
+                                                className="text-sm font-medium text-gray-900 hover:text-blue-600"
+                                            >
+                                                {campaign.name}
+                                            </button>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="text-sm text-gray-700 max-w-xs truncate">{campaign.subject}</div>
@@ -281,6 +308,12 @@ export default function Campaigns() {
                                                 {campaign.status === 'draft' && (
                                                     <>
                                                         <button
+                                                            onClick={() => handleViewCampaign(campaign)}
+                                                            className="text-slate-600 hover:text-slate-900 p-1 rounded hover:bg-slate-50"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleEditCampaign(campaign)}
                                                             className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                                                         >
@@ -294,9 +327,9 @@ export default function Campaigns() {
                                                         </button>
                                                     </>
                                                 )}
-                                                {(campaign.status === 'sent' || campaign.status === 'partial') && (
+                                                {(campaign.status === 'sent' || campaign.status === 'partial' || campaign.status === 'failed' || campaign.status === 'sending') && (
                                                     <button
-                                                        onClick={() => handleEditCampaign(campaign)}
+                                                        onClick={() => handleViewCampaign(campaign)}
                                                         className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                                                     >
                                                         <Eye className="w-4 h-4" />
@@ -339,12 +372,25 @@ export default function Campaigns() {
                     subject: editingCampaign.subject,
                     htmlContent: editingCampaign.htmlContent,
                     textContent: editingCampaign.textContent,
+                    trackOpens: editingCampaign.trackOpens,
+                    trackClicks: editingCampaign.trackClicks,
+                    callToActionUrl: editingCampaign.callToActionUrl,
+                    callToActionLabel: editingCampaign.callToActionLabel,
                     emailCredentialId: typeof editingCampaign.emailCredential === 'string'
                         ? editingCampaign.emailCredential
                         : editingCampaign.emailCredential._id,
                     recipients: editingCampaign.recipients
                 } : undefined}
                 title={editingCampaign ? 'Editar campaña' : 'Nueva campaña'}
+            />
+
+            <CampaignDetailsModal
+                campaign={selectedCampaign}
+                isOpen={isDetailsOpen}
+                onClose={() => {
+                    setIsDetailsOpen(false);
+                    setSelectedCampaign(null);
+                }}
             />
 
             {/* Credential Management Modal */}

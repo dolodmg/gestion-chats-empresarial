@@ -47,6 +47,15 @@ export default function RecipientManager({ recipients, onRecipientsChange }: Rec
         setName('');
     };
 
+    const handleManualInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        event.preventDefault();
+        handleAddRecipient();
+    };
+
     const handleRemoveRecipient = (index: number) => {
         const newRecipients = recipients.filter((_, i) => i !== index);
         onRecipientsChange(newRecipients);
@@ -113,7 +122,7 @@ export default function RecipientManager({ recipients, onRecipientsChange }: Rec
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddRecipient()}
+                    onKeyDown={handleManualInputKeyDown}
                     placeholder="email@ejemplo.com"
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -121,11 +130,12 @@ export default function RecipientManager({ recipients, onRecipientsChange }: Rec
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddRecipient()}
+                    onKeyDown={handleManualInputKeyDown}
                     placeholder="Nombre (opcional)"
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <button
+                    type="button"
                     onClick={handleAddRecipient}
                     className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                 >

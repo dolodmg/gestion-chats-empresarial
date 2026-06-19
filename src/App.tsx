@@ -17,6 +17,7 @@ import AdvisorMetrics from './pages/AdvisorMetrics';
 import Campaigns from './pages/Campaigns';
 import Templates from './pages/Templates';
 import ClientMetrics from './pages/ClientMetrics';
+import SendingDomains from './pages/SendingDomains';
 import { Toaster } from "@/components/ui/sonner";
 
 function AppRoutes() {
@@ -127,6 +128,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredFeature="campaigns">
             <Campaigns />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sending-domains"
+        element={
+          <ProtectedRoute requiredFeature="campaigns">
+            <SendingDomains />
           </ProtectedRoute>
         }
       />
