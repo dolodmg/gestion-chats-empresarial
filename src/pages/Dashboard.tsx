@@ -33,7 +33,10 @@ import {
   Mic,
   Trash2,
   Sparkles,
-  ImagePlus
+  ImagePlus,
+  CheckSquare,
+  Square,
+  XCircle
 } from 'lucide-react';
 import { TagFilter } from '@/components/tags/TagFilter';
 import { ChatSummaryModal } from '@/components/summaries/ChatSummaryModal';
@@ -133,9 +136,15 @@ export default function Dashboard() {
   const [lightboxImage, setLightboxImage] = useState<{ url: string; fileName?: string } | null>(null);
   const [deleteChatDialog, setDeleteChatDialog] = useState<{ isOpen: boolean; chatId: string }>({ isOpen: false, chatId: '' });
   const [deleteMessageDialog, setDeleteMessageDialog] = useState<{ isOpen: boolean; messageId: string }>({ isOpen: false, messageId: '' });
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedChatIds, setSelectedChatIds] = useState<string[]>([]);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   const listRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = React.useRef(true);
+  const lastActiveChatIdRef = React.useRef<string | null>(null);
+  const lastMessageCountRef = React.useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stickerFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -236,9 +245,161 @@ export default function Dashboard() {
     }
   };
 
+  const selectedChatCount = selectedChatIds.length;
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedChatIds([]);
+  };
+
+  const toggleChatSelection = (chatId: string) => {
+    setSelectedChatIds(current =>
+      current.includes(chatId)
+        ? current.filter(id => id !== chatId)
+        : [...current, chatId]
+    );
+  };
+
   const handleChatSelect = (chat: any) => {
+    if (selectionMode) {
+      toggleChatSelection(chat.chatId);
+      return;
+    }
+
     setActiveChat(chat);
     if (isMobile) setShowMobileChatList(false);
+  };
+
+  const handleBulkReturnToBot = async () => {
+    if (!selectedHumanChatIds.length) {
+      toast.info('No hay chats manuales seleccionados');
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      selectedHumanChatIds.map(chatId => chatService.changeChatStatus(chatId, 'bot'))
+    );
+
+    const successCount = results.filter(result => result.status === 'fulfilled').length;
+    const failedCount = results.length - successCount;
+
+    if (activeChat && selectedHumanChatIds.includes(activeChat.chatId)) {
+      setActiveChat({
+        ...activeChat,
+        chatStatus: 'bot',
+        statusChangeTime: undefined,
+        manualControlLocked: false
+      });
+    }
+
+    refreshChats();
+    exitSelectionMode();
+
+    if (successCount > 0) {
+      toast.success('Control devuelto al bot', {
+        description: `${successCount} chat${successCount !== 1 ? 's' : ''} actualizado${successCount !== 1 ? 's' : ''}`
+      });
+    }
+
+    if (failedCount > 0) {
+      toast.error('Algunos chats no se pudieron actualizar', {
+        description: `${failedCount} chat${failedCount !== 1 ? 's' : ''} fallaron`
+      });
+    }
+  };
+
+  const handleBulkTakeControl = async () => {
+    if (!selectedBotChatIds.length) {
+      toast.info('No hay chats del bot seleccionados');
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      selectedBotChatIds.map(chatId => chatService.changeChatStatus(chatId, 'human'))
+    );
+
+    const successCount = results.filter(result => result.status === 'fulfilled').length;
+    const failedCount = results.length - successCount;
+
+    if (activeChat && selectedBotChatIds.includes(activeChat.chatId)) {
+      setActiveChat({
+        ...activeChat,
+        chatStatus: 'human',
+        statusChangeTime: new Date().toISOString(),
+        manualControlLocked: false
+      });
+    }
+
+    refreshChats();
+    exitSelectionMode();
+
+    if (successCount > 0) {
+      toast.success('Control manual aplicado', {
+        description: `${successCount} chat${successCount !== 1 ? 's' : ''} actualizado${successCount !== 1 ? 's' : ''}`
+      });
+    }
+
+    if (failedCount > 0) {
+      toast.error('Algunos chats no se pudieron actualizar', {
+        description: `${failedCount} chat${failedCount !== 1 ? 's' : ''} fallaron`
+      });
+    }
+  };
+
+  const handleBulkAddTag = async (tagName: string) => {
+    if (!selectedChatIds.length) {
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      selectedChatIds.map(chatId => tagService.addTagToChat(chatId, tagName))
+    );
+
+    const successCount = results.filter(result => result.status === 'fulfilled').length;
+    const failedCount = results.length - successCount;
+
+    refreshChats();
+    exitSelectionMode();
+
+    if (successCount > 0) {
+      toast.success('Tag aplicada', {
+        description: `Se aplicó "${tagName}" a ${successCount} chat${successCount !== 1 ? 's' : ''}`
+      });
+    }
+
+    if (failedCount > 0) {
+      toast.error('Algunos chats no se pudieron etiquetar', {
+        description: `${failedCount} chat${failedCount !== 1 ? 's' : ''} fallaron`
+      });
+    }
+  };
+
+  const handleBulkDeleteChats = async () => {
+    if (!selectedChatIds.length) {
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      selectedChatIds.map(chatId => deleteChat(chatId))
+    );
+
+    const successCount = results.filter(result => result.status === 'fulfilled').length;
+    const failedCount = results.length - successCount;
+
+    setBulkDeleteDialogOpen(false);
+    exitSelectionMode();
+
+    if (successCount > 0) {
+      toast.success('Chats eliminados', {
+        description: `${successCount} chat${successCount !== 1 ? 's' : ''} eliminado${successCount !== 1 ? 's' : ''}`
+      });
+    }
+
+    if (failedCount > 0) {
+      toast.error('Algunos chats no se pudieron eliminar', {
+        description: `${failedCount} chat${failedCount !== 1 ? 's' : ''} fallaron`
+      });
+    }
   };
 
   const handleDownloadFile = async (url: string, fileName?: string) => {
@@ -687,9 +848,31 @@ export default function Dashboard() {
   }, []);
 
   React.useEffect(() => {
-    if (!activeChat) return;
-    scrollMessagesToBottom();
+    if (!activeChat) {
+      lastActiveChatIdRef.current = null;
+      lastMessageCountRef.current = 0;
+      shouldStickToBottomRef.current = true;
+      return;
+    }
+
+    const chatChanged = lastActiveChatIdRef.current !== activeChat.chatId;
+    const messageCountIncreased = messages.length > lastMessageCountRef.current;
+
+    if (chatChanged || (messageCountIncreased && shouldStickToBottomRef.current)) {
+      scrollMessagesToBottom();
+    }
+
+    lastActiveChatIdRef.current = activeChat.chatId;
+    lastMessageCountRef.current = messages.length;
   }, [messages, activeChat?.chatId, showMobileChatList, scrollMessagesToBottom]);
+
+  const handleMessagesScroll = React.useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 80;
+  }, []);
 
   const sortedChats = React.useMemo(() => {
     return [...chats].sort((a, b) => {
@@ -747,6 +930,22 @@ export default function Dashboard() {
     return filteredChats;
   }, [isSearchActive, searchResults, filteredChats]);
 
+  const selectedChats = React.useMemo(
+    () => displayChats.filter(chat => selectedChatIds.includes(chat.chatId)),
+    [displayChats, selectedChatIds]
+  );
+
+  const selectedBotChatIds = selectedChats
+    .filter(chat => chat.chatStatus === 'bot')
+    .map(chat => chat.chatId);
+
+  const selectedHumanChatIds = selectedChats
+    .filter(chat => chat.chatStatus === 'human')
+    .map(chat => chat.chatId);
+
+  const areAllVisibleChatsSelected =
+    displayChats.length > 0 && displayChats.every(chat => selectedChatIds.includes(chat.chatId));
+
   const handleScroll = () => {
     const target = listRef.current;
     if (target) {
@@ -772,6 +971,23 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold text-gray-900">Conversaciones</h2>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => {
+                  if (selectionMode) {
+                    exitSelectionMode();
+                  } else {
+                    setSelectionMode(true);
+                  }
+                }}
+                className={`p-2 rounded-full transition-colors ${
+                  selectionMode
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+                title={selectionMode ? 'Salir del modo seleccionar' : 'Seleccionar chats'}
+              >
+                <CheckSquare className="w-5 h-5" />
+              </button>
+              <button
                 onClick={() => setIsExportModalOpen(true)}
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
                 title="Exportar chats"
@@ -795,6 +1011,94 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+
+          {selectionMode && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      <CheckSquare className="h-3.5 w-3.5" />
+                      {selectedChatCount} seleccionados
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      <Bot className="h-3.5 w-3.5" />
+                      {selectedBotChatIds.length} en bot
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                      <User className="h-3.5 w-3.5" />
+                      {selectedHumanChatIds.length} en manual
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={exitSelectionMode}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Cancelar
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (areAllVisibleChatsSelected) {
+                      setSelectedChatIds([]);
+                    } else {
+                      setSelectedChatIds(displayChats.map(chat => chat.chatId));
+                    }
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  {areAllVisibleChatsSelected ? 'Limpiar visibles' : 'Seleccionar visibles'}
+                </button>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={handleBulkTakeControl}
+                    disabled={!selectedBotChatIds.length}
+                    className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                  >
+                    <User className="h-4 w-4" />
+                    Pasar a manual
+                    {selectedBotChatIds.length > 0 ? ` (${selectedBotChatIds.length})` : ''}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkReturnToBot}
+                    disabled={!selectedHumanChatIds.length}
+                    className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                  >
+                    <Bot className="h-4 w-4" />
+                    Devolver al bot
+                    {selectedHumanChatIds.length > 0 ? ` (${selectedHumanChatIds.length})` : ''}
+                  </button>
+                  <TagSelector
+                    availableTags={tagService.tags}
+                    selectedTags={[]}
+                    onTagAdd={handleBulkAddTag}
+                    onTagRemove={() => {}}
+                    {...(user?.role !== 'advisor' && { onCreateTag: () => setIsTagManagerOpen(true) })}
+                    disabled={!selectedChatCount}
+                    buttonLabel="Etiquetar seleccionados"
+                    buttonClassName="w-full min-h-[44px] justify-center rounded-xl border-slate-200 bg-slate-50 hover:bg-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setBulkDeleteDialogOpen(true)}
+                    disabled={!selectedChatCount}
+                    className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Search Bar */}
@@ -842,10 +1146,25 @@ export default function Dashboard() {
               <button
                 key={chat.chatId}
                 onClick={() => handleChatSelect(chat)}
-                className={`group w-full text-left p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 ${activeChat?.chatId === chat.chatId ? 'bg-blue-50' : ''
+                type="button"
+                className={`group w-full text-left p-4 transition-colors border-b border-gray-100 ${
+                  selectionMode && selectedChatIds.includes(chat.chatId)
+                    ? 'bg-blue-50 ring-1 ring-inset ring-blue-200'
+                    : activeChat?.chatId === chat.chatId
+                      ? 'bg-blue-50'
+                      : 'hover:bg-gray-50'
                   }`}
               >
                 <div className="flex items-start space-x-3">
+                  {selectionMode && (
+                    <div className="pt-1 text-blue-600 flex-shrink-0">
+                      {selectedChatIds.includes(chat.chatId) ? (
+                        <CheckSquare className="w-5 h-5" />
+                      ) : (
+                        <Square className="w-5 h-5" />
+                      )}
+                    </div>
+                  )}
                   <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-sm font-medium text-gray-600">
                       {chat.contactName?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'U'}
@@ -860,7 +1179,9 @@ export default function Dashboard() {
                         <span className="text-xs text-gray-500 transition-transform duration-200 group-hover:-translate-x-1">
                           {formatChatDate(chat.lastMessageTimestamp)}
                         </span>
-                        <div className="w-0 opacity-0 group-hover:w-5 group-hover:opacity-100 transition-all duration-200 flex items-center justify-end overflow-hidden">
+                        <div className={`transition-all duration-200 flex items-center justify-end overflow-hidden ${
+                          selectionMode ? 'w-0 opacity-0' : 'w-0 opacity-0 group-hover:w-5 group-hover:opacity-100'
+                        }`}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1051,13 +1372,22 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex flex-col gap-3 w-full lg:w-auto">
-                  {activeChat.statusChangeTime && activeChat.chatStatus === 'human' && (
+                  {activeChat.statusChangeTime && activeChat.chatStatus === 'human' && !activeChat.manualControlLocked && (
                     <div className="flex items-center justify-between sm:justify-center gap-2 bg-orange-50 px-3 py-2 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-orange-600" />
                       <Timer
                         statusChangeTime={activeChat.statusChangeTime}
                         onExpire={() => toggleChatMode(activeChat.chatId)}
                       />
+                    </div>
+                  )}
+
+                  {activeChat.chatStatus === 'human' && activeChat.manualControlLocked && (
+                    <div className="flex items-center justify-between sm:justify-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
+                      <User className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-700">
+                        Control humano fijo
+                      </span>
                     </div>
                   )}
 
@@ -1096,6 +1426,7 @@ export default function Dashboard() {
             {/* Messages */}
             <div
               ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
               className="flex-1 overflow-y-auto p-4 space-y-4"
             >
               {Object.keys(messageGroups).sort().map(dateKey => (
@@ -1573,6 +1904,16 @@ export default function Dashboard() {
         title="Eliminar Chat"
         message="¿Estás seguro de que quieres eliminar este chat y todos sus mensajes? Esta acción no se puede deshacer."
         confirmText="Eliminar"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteDialogOpen}
+        onClose={() => setBulkDeleteDialogOpen(false)}
+        onConfirm={handleBulkDeleteChats}
+        title="Eliminar chats seleccionados"
+        message={`¿Estás seguro de que quieres eliminar ${selectedChatCount} chat${selectedChatCount !== 1 ? 's' : ''}? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar seleccionados"
         variant="danger"
       />
 

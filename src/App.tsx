@@ -15,6 +15,7 @@ import MetaEventos from './pages/MetaEventos';
 import Asesores from './pages/Asesores';
 import AdvisorMetrics from './pages/AdvisorMetrics';
 import Campaigns from './pages/Campaigns';
+import WhatsAppCampaigns from './pages/WhatsAppCampaigns';
 import Templates from './pages/Templates';
 import ClientMetrics from './pages/ClientMetrics';
 import SendingDomains from './pages/SendingDomains';
@@ -136,6 +137,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredFeature="campaigns">
             <SendingDomains />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/whatsapp-campaigns"
+        element={
+          <ProtectedRoute requiredFeature="whatsappCampaigns">
+            <WhatsAppCampaigns />
           </ProtectedRoute>
         }
       />

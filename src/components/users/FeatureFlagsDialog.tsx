@@ -22,7 +22,8 @@ const FEATURE_FIELDS: Array<{
   description: string;
 }> = [
   { key: 'data', label: 'Mis Datos', description: 'Muestra la sección de tablas y datos del cliente.' },
-  { key: 'campaigns', label: 'Campañas', description: 'Habilita la pantalla de campañas.' },
+  { key: 'campaigns', label: 'Campañas Email', description: 'Habilita campañas de email y dominios autenticados.' },
+  { key: 'whatsappCampaigns', label: 'Campañas WhatsApp', description: 'Habilita la pantalla de campañas masivas de WhatsApp.' },
   { key: 'templates', label: 'Plantillas', description: 'Habilita la pantalla de plantillas de WhatsApp.' },
   { key: 'sendTemplates', label: 'Envío de plantillas', description: 'Permite enviar plantillas desde el dashboard.' },
   { key: 'conversationSummary', label: 'Resumen de conversaciones', description: 'Permite abrir y generar resúmenes desde el dashboard.' },

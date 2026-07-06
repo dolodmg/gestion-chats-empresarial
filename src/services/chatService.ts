@@ -12,6 +12,7 @@ export interface Chat {
   unreadCount: number;
   chatStatus: 'bot' | 'human';
   statusChangeTime?: string;
+  manualControlLocked?: boolean;
   tags: string[];
   assignedAdvisorId?: string | null;
   assignedAdvisorName?: string | null; // 🔑 NUEVO: Asesor asignado

@@ -157,3 +157,63 @@ export interface CreateSendingDomainData {
     bouncePrefix?: string;
     dmarcRua?: string;
 }
+
+export interface WhatsAppCampaignRecipient {
+    _id?: string;
+    phoneNumber: string;
+    name: string;
+    status: 'pending' | 'accepted' | 'sent' | 'delivered' | 'read' | 'failed';
+    whatsAppMessageId?: string | null;
+    sentAt?: string;
+    deliveredAt?: string;
+    readAt?: string;
+    failedAt?: string;
+    lastStatusAt?: string;
+    error?: string;
+}
+
+export interface WhatsAppCampaign {
+    _id: string;
+    name: string;
+    template: string | {
+        _id: string;
+        name: string;
+        status: string;
+        category: string;
+        language: string;
+    };
+    templateName: string;
+    templateLanguage: string;
+    templateCategory: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
+    bodyPreview: string;
+    parameters: string[];
+    recipients: WhatsAppCampaignRecipient[];
+    status: 'draft' | 'sending' | 'completed' | 'partial' | 'failed';
+    totalRecipients: number;
+    sentCount: number;
+    deliveredCount: number;
+    readCount: number;
+    failedCount: number;
+    createdBy: string;
+    clientId: string;
+    startedAt?: string;
+    completedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateWhatsAppCampaignData {
+    name: string;
+    templateId: string;
+    parameters?: string[];
+    recipients?: Array<Pick<WhatsAppCampaignRecipient, 'phoneNumber' | 'name'>>;
+}
+
+export interface WhatsAppCampaignStats {
+    totalCampaigns: number;
+    totalRecipients: number;
+    totalSent: number;
+    totalDelivered: number;
+    totalRead: number;
+    totalFailed: number;
+}

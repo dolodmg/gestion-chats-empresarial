@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { templateService, WhatsAppTemplate } from '../services/templateService';
 import { toast } from 'sonner';
 import {
@@ -16,6 +17,7 @@ import {
 import { Button } from '../components/ui/button';
 
 export default function Templates() {
+    const navigate = useNavigate();
     const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
     const [filteredTemplates, setFilteredTemplates] = useState<WhatsAppTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -92,6 +94,16 @@ export default function Templates() {
                 description: error.response?.data?.msg || 'No se pudo eliminar la plantilla'
             });
         }
+    };
+
+    const handleSendToCampaign = (template: WhatsAppTemplate) => {
+        navigate('/whatsapp-campaigns', {
+            state: {
+                openCreate: true,
+                templateId: template._id,
+                templateName: template.name
+            }
+        });
     };
 
     const getStatusIcon = (status: string) => {
@@ -247,7 +259,7 @@ export default function Templates() {
                                 {/* Actions */}
                                 <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
                                     <Button
-                                        onClick={() => toast.info('Próximamente', { description: 'Función en desarrollo' })}
+                                        onClick={() => handleSendToCampaign(template)}
                                         disabled={!templateService.canBeSent(template)}
                                         variant="outline"
                                         size="sm"

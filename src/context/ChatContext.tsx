@@ -1,6 +1,6 @@
 // ChatContext.tsx
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { chatService, Chat, Message } from '../services/chatService';
 import { useAuth } from './AuthContext';
 import sseService from '../services/sseService';
@@ -34,9 +34,32 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 const CHAT_PAGE_LIMIT = 50;
 
+function isRealContactName(contactName?: string | null, phoneNumber?: string | null) {
+  const normalizedName = String(contactName || '').trim();
+  const normalizedPhone = String(phoneNumber || '').replace(/\D/g, '');
+
+  if (!normalizedName || normalizedName === 'Usuario Prueba') {
+    return false;
+  }
+
+  return normalizedName.replace(/\D/g, '') !== normalizedPhone;
+}
+
+function mergeChatPreservingName(currentChat: Chat, incomingChat: Partial<Chat>) {
+  const mergedChat = { ...currentChat, ...incomingChat };
+  const incomingPhoneNumber = incomingChat.phoneNumber ?? currentChat.phoneNumber;
+
+  if (!isRealContactName(incomingChat.contactName, incomingPhoneNumber) && isRealContactName(currentChat.contactName, currentChat.phoneNumber)) {
+    mergedChat.contactName = currentChat.contactName;
+  }
+
+  return mergedChat;
+}
+
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const token = localStorage.getItem('auth_token');
+  const hasLoadedChatsOnceRef = useRef(false);
 
   console.log('🔍 DEBUG ChatContext:', {
     user: user ? 'existe' : 'null',
@@ -62,17 +85,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     setIsLoading(true);
-    setError(null);
+    const shouldShowBlockingError = !hasLoadedChatsOnceRef.current;
+    if (shouldShowBlockingError) {
+      setError(null);
+    }
 
     try {
       const clientId = user.role === 'admin' ? undefined : user.clientId;
       const chatList = await chatService.getChats(clientId, 0, CHAT_PAGE_LIMIT);
 
+      hasLoadedChatsOnceRef.current = true;
       setChats(chatList);
+      setError(null);
+      setActiveChat(prevActive => {
+        if (!prevActive) {
+          return prevActive;
+        }
+
+        const refreshedActiveChat = chatList.find(chat => chat.chatId === prevActive.chatId);
+        return refreshedActiveChat ? mergeChatPreservingName(prevActive, refreshedActiveChat) : prevActive;
+      });
       setSkip(chatList.length);
       setHasMore(chatList.length === CHAT_PAGE_LIMIT);
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Error al cargar chats');
+      const errorMessage = error.response?.data?.message || 'Error al cargar chats';
+
+      if (shouldShowBlockingError) {
+        setError(errorMessage);
+      } else {
+        console.warn('Error refrescando chats en segundo plano:', errorMessage, error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -81,6 +123,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const loadChatMessages = useCallback(async (chat: Chat) => {
     try {
       const chatWithMessages = await chatService.getChatWithMessages(chat.chatId);
+      setActiveChat(prevActive =>
+        prevActive && prevActive.chatId === chat.chatId
+          ? mergeChatPreservingName(prevActive, chatWithMessages.chat)
+          : prevActive
+      );
+      setChats(prevChats =>
+        prevChats.map(existingChat =>
+          existingChat.chatId === chat.chatId
+            ? mergeChatPreservingName(existingChat, chatWithMessages.chat)
+            : existingChat
+        )
+      );
       // ✅ Ordenar mensajes por timestamp al cargarlos
       const sortedMessages = chatWithMessages.messages.sort((a, b) =>
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
@@ -131,38 +185,46 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [activeChat, refreshChats, loadChatMessages]);
 
   const handleChatStatusChanged = useCallback((data: any) => {
-    const { chatId, chatStatus, statusChangeTime } = data;
+    const { chatId, chatStatus, statusChangeTime, manualControlLocked } = data;
 
     console.log('🔄 Estado cambiado SSE:', chatId, '->', chatStatus);
 
     setChats(prevChats =>
       prevChats.map(chat =>
         chat.chatId === chatId
-          ? { ...chat, chatStatus, statusChangeTime }
+          ? { ...chat, chatStatus, statusChangeTime, manualControlLocked }
           : chat
       )
     );
 
     if (activeChat?.chatId === chatId) {
-      setActiveChat(prev => prev ? { ...prev, chatStatus, statusChangeTime } : null);
+      setActiveChat(prev => prev ? { ...prev, chatStatus, statusChangeTime, manualControlLocked } : null);
     }
   }, [activeChat]);
 
   const handleChatUpdated = useCallback((data: any) => {
     console.log('🔔 Chat actualizado SSE:', data.chatId);
 
-    setChats(prevChats =>
-      prevChats.map(chat =>
-        chat.chatId === data.chatId
-          ? { ...chat, ...data }
-          : chat
-      )
-    );
+    setChats(prevChats => {
+      const existingChat = prevChats.find(chat => chat.chatId === data.chatId);
+
+      if (!existingChat) {
+        refreshChats();
+        return prevChats;
+      }
+
+      const updatedChat = mergeChatPreservingName(existingChat, data);
+
+      return [
+        updatedChat,
+        ...prevChats.filter(chat => chat.chatId !== data.chatId)
+      ];
+    });
 
     if (activeChat?.chatId === data.chatId) {
-      setActiveChat(prev => prev ? { ...prev, ...data } : null);
+      setActiveChat(prev => prev ? mergeChatPreservingName(prev, data) : null);
     }
-  }, [activeChat]);
+  }, [activeChat, refreshChats]);
 
   // Conectar a SSE
   useEffect(() => {
@@ -221,7 +283,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // Reemplaza tu useEffect de 'user' (línea 214)
   useEffect(() => {
     if (user) {
+      hasLoadedChatsOnceRef.current = false;
       refreshChats();
+    } else {
+      hasLoadedChatsOnceRef.current = false;
     }
   }, [user, refreshChats]);
 
@@ -236,7 +301,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // Reemplaza tu 'toggleChatMode' (líneas 230-256)
   const toggleChatMode = useCallback(async (chatId: string) => {
-    const chat = chats.find(c => c.chatId === chatId);
+    const chat = activeChat?.chatId === chatId ? activeChat : chats.find(c => c.chatId === chatId);
     if (!chat) return;
 
     const newStatus = chat.chatStatus === 'bot' ? 'human' : 'bot';

@@ -19,9 +19,11 @@ class SSEService {
    * Conectar al servidor SSE
    */
   connect(token: string) {
+    this.shouldReconnect = true;
     if (this.eventSource) {
       console.log('⚠️ SSE ya conectado, cerrando conexión anterior');
       this.disconnect();
+      this.shouldReconnect = true;
     }
 
     const url = `${import.meta.env.VITE_API_URL || 'https://chat.pupuia.com'}/api/sse/events?token=${token}`;

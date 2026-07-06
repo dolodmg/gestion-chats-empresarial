@@ -14,6 +14,8 @@ interface TagSelectorProps {
   onTagRemove: (tagName: string) => void;
   onCreateTag?: () => void;
   disabled?: boolean;
+  buttonLabel?: string;
+  buttonClassName?: string;
 }
 
 export const TagSelector: React.FC<TagSelectorProps> = ({
@@ -22,7 +24,9 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
   onTagAdd,
   onTagRemove,
   onCreateTag,
-  disabled = false
+  disabled = false,
+  buttonLabel = 'Gestionar tags',
+  buttonClassName = ''
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -45,10 +49,10 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled}
-        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${buttonClassName}`}
       >
         <Tag className="w-4 h-4" />
-        Gestionar tags
+        {buttonLabel}
       </button>
 
       {isOpen && (

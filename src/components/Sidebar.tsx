@@ -17,7 +17,8 @@ import {
   Mail,
   FileText,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  MessageSquareText
 } from 'lucide-react';
 import { isFeatureEnabled } from '@/utils/featureFlags';
 
@@ -47,15 +48,28 @@ export default function Sidebar() {
     const canAccess = (feature: Parameters<typeof isFeatureEnabled>[1]) =>
       isFeatureEnabled(user?.role, feature, user?.featureFlags);
 
-    const campaignChildren: NavigationChildItem[] = [
-      { path: '/sending-domains', icon: ShieldCheck, label: 'Dominios Email' }
-    ];
+    const canAccessEmailCampaigns = canAccess('campaigns');
+    const canAccessWhatsAppCampaigns = canAccess('whatsappCampaigns');
+
+    const campaignChildren: NavigationChildItem[] = [];
+    if (canAccessEmailCampaigns || user?.role === 'admin') {
+      campaignChildren.push(
+        { path: '/campaigns', icon: Mail, label: 'Campañas Email' },
+        { path: '/sending-domains', icon: ShieldCheck, label: 'Dominios Email' }
+      );
+    }
+    if (canAccessWhatsAppCampaigns || user?.role === 'admin') {
+      campaignChildren.push({ path: '/whatsapp-campaigns', icon: MessageSquareText, label: 'Campañas WhatsApp' });
+    }
+    const campaignRootPath = canAccessEmailCampaigns || user?.role === 'admin'
+      ? '/campaigns'
+      : '/whatsapp-campaigns';
 
     if (user?.role === 'admin') {
       items.push(
         { path: '/dashboard', icon: MessageSquare, label: 'Dashboard' },
         { path: '/admin', icon: Users, label: 'Panel Admin' },
-        { path: '/campaigns', icon: Mail, label: 'Campañas', children: campaignChildren },
+        { path: campaignRootPath, icon: Mail, label: 'Campañas', children: campaignChildren },
         { path: '/assistant', icon: Bot, label: 'Asistente IA' },
         { path: '/profile', icon: User, label: 'Perfil' }
       );
@@ -70,12 +84,12 @@ export default function Sidebar() {
     }
 
     if (user?.role === 'client') {
-      if (canAccess('campaigns')) {
-        items.push({ path: '/campaigns', icon: Mail, label: 'Campañas', children: campaignChildren });
+      if (campaignChildren.length > 0) {
+        items.push({ path: campaignRootPath, icon: Mail, label: 'Campañas', children: campaignChildren });
       }
       if (canAccess('templates')) items.push({ path: '/templates', icon: FileText, label: 'Plantillas de Mensajes' });
       if (canAccess('advisors')) items.push({ path: '/asesores', icon: Users, label: 'Asesores' });
-      if (canAccess('advisorMetrics')) items.push({ path: '/advisor-metrics', icon: BarChart3, label: 'Métricas de Asesores' });
+      if (canAccess('advisorMetrics')) items.push({ path: '/advisor-metrics', icon: BarChart3, label: 'Metricas de Asesores' });
       if (user.clientId === '751524394719240' && canAccess('inscripciones')) {
         items.push({ path: '/inscripciones', icon: UserPlus, label: 'Inscripciones' });
       }
@@ -108,7 +122,6 @@ export default function Sidebar() {
 
   React.useEffect(() => {
     closeMobileMenu();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   const handleLogout = () => {
@@ -157,8 +170,7 @@ export default function Sidebar() {
       )}
 
       <div
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col transform transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:shadow-none md:h-full ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          }`}
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col transform transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:shadow-none md:h-full ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
