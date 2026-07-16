@@ -1,5 +1,4 @@
-// services/sseService.ts
-
+import { authService } from './authService';
 import { API_BASE_URL } from './api';
 
 const debug = (...args: unknown[]) => {
@@ -18,85 +17,69 @@ type SSECallback = (event: SSEEvent) => void;
 class SSEService {
   private eventSource: EventSource | null = null;
   private callbacks: Set<SSECallback> = new Set();
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private shouldReconnect: boolean = true;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private shouldReconnect = true;
 
-  /**
-   * Conectar al servidor SSE
-   */
-  connect(token: string) {
+  async connect() {
     this.shouldReconnect = true;
+
     if (this.eventSource) {
-      debug('SSE ya conectado, cerrando conexión anterior');
+      debug('SSE already connected, closing previous connection');
       this.disconnect();
       this.shouldReconnect = true;
     }
 
-    const url = `${API_BASE_URL}/sse/events?token=${encodeURIComponent(token)}`;
-    
-    debug('Conectando a SSE...');
+    const browserToken = authService.getStoredBrowserToken()
+      || await authService.refreshBrowserToken();
+    const url = `${API_BASE_URL}/sse/events?browserToken=${encodeURIComponent(browserToken)}`;
+
+    debug('Connecting to SSE');
     this.eventSource = new EventSource(url);
 
-    // Evento: Conectado
-    this.eventSource.addEventListener('connected', (e) => {
-      debug('SSE conectado:', JSON.parse(e.data));
-      this.notifyCallbacks({ type: 'connected', data: JSON.parse(e.data) });
+    this.eventSource.addEventListener('connected', (event) => {
+      const data = JSON.parse(event.data);
+      debug('SSE connected', data);
+      this.notifyCallbacks({ type: 'connected', data });
     });
 
-    // Evento: Nuevo mensaje
-    this.eventSource.addEventListener('new_message', (e) => {
-      const data = JSON.parse(e.data);
-      debug('Nuevo mensaje recibido:', data.chatId);
+    this.eventSource.addEventListener('new_message', (event) => {
+      const data = JSON.parse(event.data);
+      debug('New SSE message', data.chatId);
       this.notifyCallbacks({ type: 'new_message', data });
     });
 
-    // Evento: Cambio de estado de chat
-    this.eventSource.addEventListener('chat_status_changed', (e) => {
-      const data = JSON.parse(e.data);
-      debug('Estado de chat cambiado:', data.chatId, '->', data.chatStatus);
+    this.eventSource.addEventListener('chat_status_changed', (event) => {
+      const data = JSON.parse(event.data);
+      debug('SSE chat status changed', data.chatId, data.chatStatus);
       this.notifyCallbacks({ type: 'chat_status_changed', data });
     });
 
-    // Evento: Actualización de chat
-    this.eventSource.addEventListener('chat_updated', (e) => {
-      const data = JSON.parse(e.data);
-      debug('Chat actualizado:', data.chatId);
+    this.eventSource.addEventListener('chat_updated', (event) => {
+      const data = JSON.parse(event.data);
+      debug('SSE chat updated', data.chatId);
       this.notifyCallbacks({ type: 'chat_updated', data });
     });
 
-    // Evento: Heartbeat
-    this.eventSource.addEventListener('heartbeat', () => {
-      // Silencioso, solo para mantener la conexión viva
-    });
+    this.eventSource.addEventListener('heartbeat', () => {});
 
-    // Error handler
     this.eventSource.onerror = () => {
-      console.error('❌ Error en SSE');
-      
-      if (this.eventSource?.readyState === EventSource.CLOSED) {
-        debug('Conexión SSE cerrada');
-        
-        if (this.shouldReconnect) {
-          debug('Intentando reconectar en 3 segundos...');
-          this.reconnectTimeout = setTimeout(() => {
-            this.connect(token);
-          }, 3000);
-        }
+      console.error('SSE connection error');
+
+      if (this.eventSource?.readyState === EventSource.CLOSED && this.shouldReconnect) {
+        this.reconnectTimeout = setTimeout(() => {
+          void this.connect();
+        }, 3000);
       }
     };
 
-    // Open handler
     this.eventSource.onopen = () => {
-      debug('Conexión SSE establecida');
+      debug('SSE connection established');
     };
   }
 
-  /**
-   * Desconectar del servidor SSE
-   */
   disconnect() {
     this.shouldReconnect = false;
-    
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
@@ -105,39 +88,23 @@ class SSEService {
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
-      debug('SSE desconectado');
+      debug('SSE disconnected');
     }
   }
 
-  /**
-   * Suscribirse a eventos SSE
-   */
   subscribe(callback: SSECallback) {
     this.callbacks.add(callback);
     return () => this.callbacks.delete(callback);
   }
 
-  /**
-   * Notificar a todos los callbacks
-   */
   private notifyCallbacks(event: SSEEvent) {
-    this.callbacks.forEach(callback => {
-      try {
-        callback(event);
-      } catch (error) {
-        console.error('Error en callback SSE:', error);
-      }
-    });
+    this.callbacks.forEach((callback) => callback(event));
   }
 
-  /**
-   * Verificar si está conectado
-   */
-  isConnected(): boolean {
+  isConnected() {
     return this.eventSource?.readyState === EventSource.OPEN;
   }
 }
 
-// Singleton
 export const sseService = new SSEService();
 export default sseService;

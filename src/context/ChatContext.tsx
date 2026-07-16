@@ -259,7 +259,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!userId || !token) return;
 
-    sseService.connect(token);
+    void sseService.connect();
 
     const unsubscribe = sseService.subscribe((event) => {
       const handlers = sseHandlersRef.current;
