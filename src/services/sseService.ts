@@ -1,5 +1,11 @@
 // services/sseService.ts
 
+import { API_BASE_URL } from './api';
+
+const debug = (...args: unknown[]) => {
+  if (import.meta.env.DEV) console.debug(...args);
+};
+
 type SSEEventType = 'new_message' | 'chat_status_changed' | 'chat_updated' | 'connected' | 'heartbeat';
 
 interface SSEEvent {
@@ -21,40 +27,40 @@ class SSEService {
   connect(token: string) {
     this.shouldReconnect = true;
     if (this.eventSource) {
-      console.log('⚠️ SSE ya conectado, cerrando conexión anterior');
+      debug('SSE ya conectado, cerrando conexión anterior');
       this.disconnect();
       this.shouldReconnect = true;
     }
 
-    const url = `${import.meta.env.VITE_API_URL || 'https://chat.pupuia.com'}/api/sse/events?token=${token}`;
+    const url = `${API_BASE_URL}/sse/events?token=${encodeURIComponent(token)}`;
     
-    console.log('📡 Conectando a SSE...');
+    debug('Conectando a SSE...');
     this.eventSource = new EventSource(url);
 
     // Evento: Conectado
     this.eventSource.addEventListener('connected', (e) => {
-      console.log('✅ SSE conectado:', JSON.parse(e.data));
+      debug('SSE conectado:', JSON.parse(e.data));
       this.notifyCallbacks({ type: 'connected', data: JSON.parse(e.data) });
     });
 
     // Evento: Nuevo mensaje
     this.eventSource.addEventListener('new_message', (e) => {
       const data = JSON.parse(e.data);
-      console.log('📨 Nuevo mensaje recibido:', data.chatId);
+      debug('Nuevo mensaje recibido:', data.chatId);
       this.notifyCallbacks({ type: 'new_message', data });
     });
 
     // Evento: Cambio de estado de chat
     this.eventSource.addEventListener('chat_status_changed', (e) => {
       const data = JSON.parse(e.data);
-      console.log('🔄 Estado de chat cambiado:', data.chatId, '->', data.chatStatus);
+      debug('Estado de chat cambiado:', data.chatId, '->', data.chatStatus);
       this.notifyCallbacks({ type: 'chat_status_changed', data });
     });
 
     // Evento: Actualización de chat
     this.eventSource.addEventListener('chat_updated', (e) => {
       const data = JSON.parse(e.data);
-      console.log('🔔 Chat actualizado:', data.chatId);
+      debug('Chat actualizado:', data.chatId);
       this.notifyCallbacks({ type: 'chat_updated', data });
     });
 
@@ -68,10 +74,10 @@ class SSEService {
       console.error('❌ Error en SSE');
       
       if (this.eventSource?.readyState === EventSource.CLOSED) {
-        console.log('🔌 Conexión SSE cerrada');
+        debug('Conexión SSE cerrada');
         
         if (this.shouldReconnect) {
-          console.log('🔄 Intentando reconectar en 3 segundos...');
+          debug('Intentando reconectar en 3 segundos...');
           this.reconnectTimeout = setTimeout(() => {
             this.connect(token);
           }, 3000);
@@ -81,7 +87,7 @@ class SSEService {
 
     // Open handler
     this.eventSource.onopen = () => {
-      console.log('📡 Conexión SSE establecida');
+      debug('Conexión SSE establecida');
     };
   }
 
@@ -99,7 +105,7 @@ class SSEService {
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
-      console.log('🔌 SSE desconectado');
+      debug('SSE desconectado');
     }
   }
 

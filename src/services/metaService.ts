@@ -1,12 +1,11 @@
 import axios from 'axios';
+import { API_BASE_URL } from './api';
 
-const API_URL = `${import.meta.env.VITE_API_URL || 'https://chat.pupuia.com'}/api/meta`;
+const API_URL = `${API_BASE_URL}/meta`;
 
 // Get authentication token from localStorage
 const getAuthToken = () => {
-    const token = localStorage.getItem('auth_token');
-    console.log('🔑 Meta Service - Token:', token ? 'EXISTS' : 'NULL');
-    return token;
+    return localStorage.getItem('auth_token');
 };
 
 // Get Meta configuration

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { chatService, Chat, Message } from '../services/chatService';
 import { useAuth } from './AuthContext';
 import sseService from '../services/sseService';
+import { ManualControlOption } from '@/utils/manualControl';
 
 interface ChatContextType {
   chats: Chat[];
@@ -15,7 +16,7 @@ interface ChatContextType {
   toggleChatMode: (chatId: string) => void;
   sendMessage: (content: string) => void;
   sendMediaMessage: (file: File, caption?: string) => void;
-  takeChatControl: (chatId: string) => void;
+  takeChatControl: (chatId: string, option?: ManualControlOption) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   refreshChats: () => void;
@@ -61,13 +62,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('auth_token');
   const hasLoadedChatsOnceRef = useRef(false);
 
-  console.log('🔍 DEBUG ChatContext:', {
-    user: user ? 'existe' : 'null',
-    token: token ? 'existe' : 'null'
-  });
-
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
+  const activeChatRef = useRef<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +77,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<Chat[]>([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
+
+  useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
 
   const refreshChats = useCallback(async () => {
     if (!user) return;
@@ -120,17 +121,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const loadChatMessages = useCallback(async (chat: Chat) => {
+  const loadChatMessages = useCallback(async (chatId: string) => {
     try {
-      const chatWithMessages = await chatService.getChatWithMessages(chat.chatId);
+      const chatWithMessages = await chatService.getChatWithMessages(chatId);
       setActiveChat(prevActive =>
-        prevActive && prevActive.chatId === chat.chatId
+        prevActive && prevActive.chatId === chatId
           ? mergeChatPreservingName(prevActive, chatWithMessages.chat)
           : prevActive
       );
       setChats(prevChats =>
         prevChats.map(existingChat =>
-          existingChat.chatId === chat.chatId
+          existingChat.chatId === chatId
             ? mergeChatPreservingName(existingChat, chatWithMessages.chat)
             : existingChat
         )
@@ -151,13 +152,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // Reemplaza tu 'handleNewMessage' (líneas 74-126)
   const handleNewMessage = useCallback((data: any) => {
     const { chatId, sender, content, timestamp } = data;
+    const currentActiveChat = activeChatRef.current;
 
-    console.log('📨 Nuevo mensaje SSE:', chatId, '- sender:', sender);
-
-    // ✅ Si es del chat activo, RECARGAR todos los mensajes
-    if (activeChat && activeChat.chatId === chatId) {
-      console.log('🔄 Recargando mensajes del chat activo');
-      loadChatMessages(activeChat);
+    if (currentActiveChat?.chatId === chatId) {
+      loadChatMessages(chatId);
     }
 
     // Actualizar lista de chats (último mensaje)
@@ -170,7 +168,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             ...existingChat,
             lastMessage: content,
             lastMessageTimestamp: timestamp,
-            unreadCount: (activeChat?.chatId === chatId || sender !== 'user')
+            unreadCount: (activeChatRef.current?.chatId === chatId || sender !== 'user')
               ? existingChat.unreadCount
               : existingChat.unreadCount + 1
           },
@@ -182,29 +180,44 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       refreshChats();
       return prevChats;
     });
-  }, [activeChat, refreshChats, loadChatMessages]);
+  }, [refreshChats, loadChatMessages]);
 
   const handleChatStatusChanged = useCallback((data: any) => {
-    const { chatId, chatStatus, statusChangeTime, manualControlLocked } = data;
-
-    console.log('🔄 Estado cambiado SSE:', chatId, '->', chatStatus);
+    const {
+      chatId,
+      chatStatus,
+      statusChangeTime,
+      manualControlLocked,
+      manualControlOption,
+      manualControlExpiresAt
+    } = data;
 
     setChats(prevChats =>
       prevChats.map(chat =>
         chat.chatId === chatId
-          ? { ...chat, chatStatus, statusChangeTime, manualControlLocked }
+          ? {
+            ...chat,
+            chatStatus,
+            statusChangeTime,
+            manualControlLocked,
+            manualControlOption,
+            manualControlExpiresAt
+          }
           : chat
       )
     );
 
-    if (activeChat?.chatId === chatId) {
-      setActiveChat(prev => prev ? { ...prev, chatStatus, statusChangeTime, manualControlLocked } : null);
-    }
-  }, [activeChat]);
+    setActiveChat(prev => prev?.chatId === chatId ? {
+        ...prev,
+        chatStatus,
+        statusChangeTime,
+        manualControlLocked,
+        manualControlOption,
+        manualControlExpiresAt
+      } : prev);
+  }, []);
 
   const handleChatUpdated = useCallback((data: any) => {
-    console.log('🔔 Chat actualizado SSE:', data.chatId);
-
     setChats(prevChats => {
       const existingChat = prevChats.find(chat => chat.chatId === data.chatId);
 
@@ -221,37 +234,54 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       ];
     });
 
-    if (activeChat?.chatId === data.chatId) {
-      setActiveChat(prev => prev ? mergeChatPreservingName(prev, data) : null);
-    }
-  }, [activeChat, refreshChats]);
+    setActiveChat(prev => prev?.chatId === data.chatId
+      ? mergeChatPreservingName(prev, data)
+      : prev
+    );
+  }, [refreshChats]);
 
-  // Conectar a SSE
+  const sseHandlersRef = useRef({
+    handleNewMessage,
+    handleChatStatusChanged,
+    handleChatUpdated
+  });
+
   useEffect(() => {
-    if (user && token) {
-      console.log('🔌 Conectando a SSE...');
-      sseService.connect(token);
+    sseHandlersRef.current = {
+      handleNewMessage,
+      handleChatStatusChanged,
+      handleChatUpdated
+    };
+  }, [handleNewMessage, handleChatStatusChanged, handleChatUpdated]);
 
-      const unsubscribe = sseService.subscribe((event) => {
-        switch (event.type) {
-          case 'new_message':
-            handleNewMessage(event.data);
-            break;
-          case 'chat_status_changed':
-            handleChatStatusChanged(event.data);
-            break;
-          case 'chat_updated':
-            handleChatUpdated(event.data);
-            break;
-        }
-      });
+  const userId = user?._id;
 
-      return () => {
-        unsubscribe();
-        sseService.disconnect();
-      };
-    }
-  }, [user, token, handleNewMessage, handleChatStatusChanged, handleChatUpdated]);
+  useEffect(() => {
+    if (!userId || !token) return;
+
+    sseService.connect(token);
+
+    const unsubscribe = sseService.subscribe((event) => {
+      const handlers = sseHandlersRef.current;
+
+      switch (event.type) {
+        case 'new_message':
+          handlers.handleNewMessage(event.data);
+          break;
+        case 'chat_status_changed':
+          handlers.handleChatStatusChanged(event.data);
+          break;
+        case 'chat_updated':
+          handlers.handleChatUpdated(event.data);
+          break;
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      sseService.disconnect();
+    };
+  }, [userId, token]);
 
 
   // Reemplaza tu 'loadMoreChats' (líneas 190-212)
@@ -290,14 +320,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, refreshChats]);
 
-  // Reemplaza tu useEffect de 'activeChat' (línea 222)
+  const activeChatId = activeChat?.chatId;
+
   useEffect(() => {
-    if (activeChat) {
-      loadChatMessages(activeChat);
+    if (activeChatId) {
+      loadChatMessages(activeChatId);
     } else {
       setMessages([]);
     }
-  }, [activeChat, loadChatMessages]); // 👈 CAMBIO CRÍTICO: Añadir 'loadChatMessages'
+  }, [activeChatId, loadChatMessages]);
 
   // Reemplaza tu 'toggleChatMode' (líneas 230-256)
   const toggleChatMode = useCallback(async (chatId: string) => {
@@ -408,9 +439,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [activeChat]);
 
   // Reemplaza tu 'takeChatControl' (líneas 286-302)
-  const takeChatControl = useCallback(async (chatId: string) => {
+  const takeChatControl = useCallback(async (
+    chatId: string,
+    option: ManualControlOption = '30m'
+  ) => {
     try {
-      const partialUpdate = await chatService.changeChatStatus(chatId, 'human');
+      const partialUpdate = await chatService.changeChatStatus(chatId, 'human', option);
 
       setChats(prevChats =>
         prevChats.map(chat =>

@@ -41,6 +41,7 @@ export default function FeatureFlagsDialog({
   onSaved,
 }: FeatureFlagsDialogProps) {
   const [featureFlags, setFeatureFlags] = useState<ClientFeatureFlags>(DEFAULT_FEATURE_FLAGS);
+  const [allowPasswordChange, setAllowPasswordChange] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const userId = useMemo(() => user?._id || user?.id || '', [user]);
@@ -48,8 +49,10 @@ export default function FeatureFlagsDialog({
   useEffect(() => {
     if (user) {
       setFeatureFlags(getMergedFeatureFlags(user.featureFlags));
+      setAllowPasswordChange(user.allowPasswordChange !== false);
     } else {
       setFeatureFlags(DEFAULT_FEATURE_FLAGS);
+      setAllowPasswordChange(true);
     }
   }, [user]);
 
@@ -68,7 +71,7 @@ export default function FeatureFlagsDialog({
 
     try {
       setIsSaving(true);
-      const payload: UpdateUserData = { featureFlags };
+      const payload: UpdateUserData = { featureFlags, allowPasswordChange };
       await userService.updateUser(userId, payload);
       toast.success('Funcionalidades actualizadas');
       onOpenChange(false);
@@ -94,6 +97,23 @@ export default function FeatureFlagsDialog({
 
         <div className="max-h-[60vh] overflow-y-auto pr-1">
           <div className="space-y-4 py-2">
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-gray-200 p-4">
+              <div className="space-y-1">
+                <Label htmlFor="allow-password-change" className="text-sm font-medium text-gray-900">
+                  Permitir cambiar contraseña
+                </Label>
+                <p className="text-sm text-gray-500">
+                  Habilita que el usuario cambie su propia contraseña desde Perfil.
+                </p>
+              </div>
+              <Switch
+                id="allow-password-change"
+                checked={allowPasswordChange}
+                onCheckedChange={setAllowPasswordChange}
+                disabled={isSaving}
+              />
+            </div>
+
             {FEATURE_FIELDS.map((field) => (
               <div key={field.key} className="flex items-start justify-between gap-4 rounded-lg border border-gray-200 p-4">
                 <div className="space-y-1">

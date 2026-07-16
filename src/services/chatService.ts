@@ -1,6 +1,7 @@
 // chatService.ts
 
 import api from './api';
+import { ManualControlOption } from '@/utils/manualControl';
 
 export interface Chat {
   chatId: string;
@@ -13,6 +14,8 @@ export interface Chat {
   chatStatus: 'bot' | 'human';
   statusChangeTime?: string;
   manualControlLocked?: boolean;
+  manualControlOption?: ManualControlOption | null;
+  manualControlExpiresAt?: string | null;
   tags: string[];
   assignedAdvisorId?: string | null;
   assignedAdvisorName?: string | null; // 🔑 NUEVO: Asesor asignado
@@ -63,8 +66,15 @@ export const chatService = {
     return response.data;
   },
 
-  async changeChatStatus(chatId: string, status: 'bot' | 'human'): Promise<Chat> {
-    const response = await api.post(`/chats/${chatId}/status`, { status });
+  async changeChatStatus(
+    chatId: string,
+    status: 'bot' | 'human',
+    manualControlOption: ManualControlOption = '30m'
+  ): Promise<Chat> {
+    const response = await api.post(`/chats/${chatId}/status`, {
+      status,
+      ...(status === 'human' ? { manualControlOption } : {})
+    });
     return response.data;
   },
 

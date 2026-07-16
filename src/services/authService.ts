@@ -1,5 +1,6 @@
 import api from './api';
 import { ClientFeatureFlags } from '@/utils/featureFlags';
+import { ManualControlPreferences } from '@/utils/manualControl';
 
 export interface LoginCredentials {
   email: string;
@@ -17,6 +18,8 @@ export interface User {
   workflowId?: string;
   whatsappToken?: string;
   featureFlags?: Partial<ClientFeatureFlags>;
+  allowPasswordChange?: boolean;
+  manualControlPreferences?: Partial<ManualControlPreferences>;
 }
 
 export interface LoginResponse {
@@ -52,6 +55,13 @@ export const authService = {
       newPassword
     });
     return res.data;
+  },
+
+  async updateManualControlPreferences(
+    preferences: Pick<ManualControlPreferences, 'durationSelectionEnabled' | 'workdayEndTime'>
+  ): Promise<ManualControlPreferences> {
+    const response = await api.put('/auth/manual-control-preferences', preferences);
+    return response.data.manualControlPreferences;
   },
 
   logout() {

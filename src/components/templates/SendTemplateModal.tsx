@@ -10,7 +10,7 @@ interface SendTemplateModalProps {
     onClose: () => void;
     chatId: string;
     chatName: string;
-    onTemplateSent: () => void;
+    onTemplateSent: (result: any) => void;
 }
 
 export function SendTemplateModal({
@@ -56,7 +56,7 @@ export function SendTemplateModal({
 
         try {
             setIsSending(true);
-            await templateService.sendTemplateToChat(selectedTemplateId, {
+            const result = await templateService.sendTemplateToChat(selectedTemplateId, {
                 chatId,
                 parameters: parameters.filter(p => p.trim() !== '')
             });
@@ -65,7 +65,7 @@ export function SendTemplateModal({
                 description: 'El chat ha sido cambiado a modo manual automáticamente'
             });
 
-            onTemplateSent();
+            onTemplateSent(result);
             onClose();
 
             // Reset form

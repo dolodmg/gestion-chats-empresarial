@@ -48,6 +48,11 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { chatService } from '../services/chatService';
 import { stickerService, type CustomSticker, type PresetSticker } from '../services/stickerService';
 import { isFeatureEnabled } from '@/utils/featureFlags';
+import { ManualControlDurationSelect } from '@/components/chats/ManualControlDurationSelect';
+import {
+  getManualControlPreferences,
+  ManualControlOption
+} from '@/utils/manualControl';
 
 function EmojiIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -99,6 +104,11 @@ export default function Dashboard() {
   const canManageAdvisors = isFeatureEnabled(user?.role, 'advisors', user?.featureFlags);
   const canSendTemplates = isFeatureEnabled(user?.role, 'sendTemplates', user?.featureFlags);
   const canViewConversationSummary = isFeatureEnabled(user?.role, 'conversationSummary', user?.featureFlags);
+  const manualControlPreferences = getManualControlPreferences(
+    user?.manualControlPreferences
+  );
+  const canChooseManualControlDuration =
+    manualControlPreferences.durationSelectionEnabled;
   const {
     chats,
     activeChat,
@@ -288,7 +298,9 @@ export default function Dashboard() {
         ...activeChat,
         chatStatus: 'bot',
         statusChangeTime: undefined,
-        manualControlLocked: false
+        manualControlLocked: false,
+        manualControlOption: null,
+        manualControlExpiresAt: null
       });
     }
 
@@ -308,26 +320,28 @@ export default function Dashboard() {
     }
   };
 
-  const handleBulkTakeControl = async () => {
+  const handleBulkTakeControl = async (
+    option: ManualControlOption = '30m'
+  ) => {
     if (!selectedBotChatIds.length) {
       toast.info('No hay chats del bot seleccionados');
       return;
     }
 
     const results = await Promise.allSettled(
-      selectedBotChatIds.map(chatId => chatService.changeChatStatus(chatId, 'human'))
+      selectedBotChatIds.map(chatId =>
+        chatService.changeChatStatus(chatId, 'human', option)
+      )
     );
 
     const successCount = results.filter(result => result.status === 'fulfilled').length;
     const failedCount = results.length - successCount;
 
     if (activeChat && selectedBotChatIds.includes(activeChat.chatId)) {
-      setActiveChat({
-        ...activeChat,
-        chatStatus: 'human',
-        statusChangeTime: new Date().toISOString(),
-        manualControlLocked: false
-      });
+      const activeResult = results[selectedBotChatIds.indexOf(activeChat.chatId)];
+      if (activeResult?.status === 'fulfilled') {
+        setActiveChat({ ...activeChat, ...activeResult.value });
+      }
     }
 
     refreshChats();
@@ -1056,16 +1070,27 @@ export default function Dashboard() {
                 </button>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={handleBulkTakeControl}
-                    disabled={!selectedBotChatIds.length}
-                    className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 transition-colors"
-                  >
-                    <User className="h-4 w-4" />
-                    Pasar a manual
-                    {selectedBotChatIds.length > 0 ? ` (${selectedBotChatIds.length})` : ''}
-                  </button>
+                  {canChooseManualControlDuration ? (
+                    <ManualControlDurationSelect
+                      preferences={manualControlPreferences}
+                      onSelect={handleBulkTakeControl}
+                      disabled={!selectedBotChatIds.length}
+                      label={'Pasar a manual' + (selectedBotChatIds.length > 0 ? ' (' + selectedBotChatIds.length + ')' : '')}
+                      variant="secondary"
+                      className="w-full justify-center rounded-lg sm:w-full"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleBulkTakeControl()}
+                      disabled={!selectedBotChatIds.length}
+                      className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                    >
+                      <User className="h-4 w-4" />
+                      Pasar a manual
+                      {selectedBotChatIds.length > 0 ? ` (${selectedBotChatIds.length})` : ''}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleBulkReturnToBot}
@@ -1377,6 +1402,7 @@ export default function Dashboard() {
                       <AlertTriangle className="w-4 h-4 text-orange-600" />
                       <Timer
                         statusChangeTime={activeChat.statusChangeTime}
+                        expiresAt={activeChat.manualControlExpiresAt}
                         onExpire={() => toggleChatMode(activeChat.chatId)}
                       />
                     </div>
@@ -1392,7 +1418,12 @@ export default function Dashboard() {
                   )}
 
                   <button
-                    onClick={() => toggleChatMode(activeChat.chatId)}
+                    onClick={() => {
+                      if (activeChat.chatStatus === 'human') {
+                        toggleChatMode(activeChat.chatId);
+                      }
+                    }}
+                    disabled={activeChat.chatStatus === 'bot'}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto flex items-center justify-center gap-2 ${activeChat.chatStatus === 'bot'
                       ? 'bg-green-100 text-green-700 hover:bg-green-200'
                       : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
@@ -1412,12 +1443,19 @@ export default function Dashboard() {
                   </button>
 
                   {activeChat.chatStatus === 'bot' && (
-                    <button
-                      onClick={() => takeChatControl(activeChat.chatId)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium w-full sm:w-auto flex items-center justify-center gap-2"
-                    >
-                      Tomar Control
-                    </button>
+                    canChooseManualControlDuration ? (
+                      <ManualControlDurationSelect
+                        preferences={manualControlPreferences}
+                        onSelect={(option) => takeChatControl(activeChat.chatId, option)}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => takeChatControl(activeChat.chatId)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium w-full sm:w-auto flex items-center justify-center gap-2"
+                      >
+                        Tomar Control
+                      </button>
+                    )
                   )}
                 </div>
               </div>
@@ -1840,15 +1878,16 @@ export default function Dashboard() {
           onClose={() => setIsSendTemplateModalOpen(false)}
           chatId={activeChat.chatId}
           chatName={activeChat.contactName || activeChat.phoneNumber}
-          onTemplateSent={async () => {
-            // Refresh chats to show updated status
+          onTemplateSent={async (result) => {
             await refreshChats();
-            // Update active chat status to 'human'
             if (activeChat) {
               setActiveChat({
                 ...activeChat,
-                chatStatus: 'human',
-                statusChangeTime: new Date().toISOString()
+                chatStatus: result.chatStatus,
+                statusChangeTime: result.statusChangeTime,
+                manualControlLocked: result.manualControlLocked,
+                manualControlOption: result.manualControlOption,
+                manualControlExpiresAt: result.manualControlExpiresAt
               });
             }
           }}

@@ -12,6 +12,7 @@ export interface CreateUserData {
   whatsappToken?: string;
   wabaId?: string;
   featureFlags?: Partial<ClientFeatureFlags>;
+  allowPasswordChange?: boolean;
 }
 
 export interface UpdateUserData {
@@ -24,6 +25,7 @@ export interface UpdateUserData {
   whatsappToken?: string;
   wabaId?: string;
   featureFlags?: Partial<ClientFeatureFlags>;
+  allowPasswordChange?: boolean;
 }
 
 export interface ClientAdminMetrics {
